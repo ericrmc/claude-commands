@@ -1,16 +1,14 @@
 # Claude Code Pipeline Commands
 
-Based on [Agent Council](https://github.com/kiran-agentic/agentcouncil), but made with commands instead of a plugin with MCP server.
+Three slash commands for structured multi-agent workflows in Claude Code. Inspired by [AgentCouncil](https://github.com/kiran-agentic/agentcouncil), built with commands instead of an MCP plugin.
 
-Three slash commands for structured multi-agent workflows in Claude Code:
+These commands guide Claude through structured protocols but are not deterministic — Claude interprets the instructions each run, so the exact execution path may vary. For stricter process guarantees, multiple LLM backends, or formal deliberation tracking, use [AgentCouncil](https://github.com/kiran-agentic/agentcouncil) directly.
 
 | Command | What it does |
 |---------|-------------|
-| `/brainstorm` | Multi-round ideation with diverse agent teams. Each round runs as an isolated lead agent: independent proposals, combined challenge-and-vote, convergence. Roles rotate and agent count tapers across rounds. |
-| `/review-fix` | Independent review by 3 agents (correctness, robustness, quality), triage, parallel fixes, verification. Loops until clean or max iterations reached. |
-| `/build` | Full pipeline: brainstorm → user approves design → parallel implementation → review-fix loop. |
-
-These commands were refined by running them on their own source. The original designs were enhanced through a `/build` pipeline run targeting the command files themselves: a 3-round `/brainstorm` produced 5 improvement recommendations, a parallel developer team implemented them across all three files, and a `/review-fix` loop validated and corrected the implementation — 22 findings found, 21 fixed and verified in a single iteration.
+| `/brainstorm` | Multi-round ideation with diverse agent roles. Produces ranked recommendations that have survived cross-challenge and voting. |
+| `/review-fix` | Three independent reviewers find issues, then parallel developers fix them. Loops until clean. |
+| `/pipeline` | Chains brainstorm → user approval → parallel implementation → review-fix. The full design-to-verified-code workflow. |
 
 ---
 
@@ -42,7 +40,7 @@ Open your Claude Code settings (`/config` or edit `~/.claude/settings.json`) and
 Copy the three `.md` files to your Claude Code commands directory:
 
 ```bash
-cp brainstorm.md build.md review-fix.md ~/.claude/commands/
+cp brainstorm.md pipeline.md review-fix.md ~/.claude/commands/
 ```
 
 **3. Use them**
@@ -52,7 +50,7 @@ In any Claude Code session, type the slash command:
 ```
 /brainstorm how should we structure our API authentication layer?
 /review-fix src/auth/
-/build add a rate limiting feature to the API
+/pipeline add a rate limiting feature to the API
 ```
 
 ---
@@ -61,7 +59,7 @@ In any Claude Code session, type the slash command:
 
 ### `/brainstorm <problem>`
 
-Runs a configurable multi-round brainstorm with agents playing distinct roles (creative inventor, pragmatic engineer, security hardener, minimalist, devil's advocate, etc.). Each round runs as an isolated lead agent with its own team — preventing cross-round context accumulation. Agents ideate independently, then challenge and vote in a single combined phase. Agent count tapers in later rounds (e.g., 4→3→3). Self-voting is excluded to prevent anchoring bias. Produces a ranked recommendation document with per-round transcripts preserving full reasoning chains.
+Agents with distinct roles (creative inventor, pragmatic engineer, security hardener, minimalist, devil's advocate, etc.) independently propose ideas, then challenge and vote on each other's proposals. Runs multiple rounds with rotating roles — ideas that survive repeated cross-examination rise to the top. Produces a ranked recommendation document with full reasoning chains.
 
 **Flags:**
 - `--rounds N` — number of rounds (default: 3)
@@ -73,7 +71,7 @@ Runs a configurable multi-round brainstorm with agents playing distinct roles (c
 
 ### `/review-fix <target>`
 
-Spawns three independent reviewers (correctness, robustness, quality), each posting findings before reading the others'. Findings are triaged with the user, then fixed by parallel developer agents, then verified. Repeats until all findings are resolved or max iterations reached. Includes an oscillation circuit breaker that escalates to the user if the same finding fails to resolve in two consecutive iterations.
+Three reviewers (correctness, robustness, quality) independently analyse the target, then cross-review each other's findings. You triage which findings to fix. Parallel developers implement fixes, verifiers confirm them. Repeats until clean or max iterations reached — with automatic escalation if the same finding keeps failing to resolve.
 
 **Flags:**
 - `--max-iterations N` — max review→fix loops (default: 3)
@@ -82,7 +80,7 @@ Spawns three independent reviewers (correctness, robustness, quality), each post
 
 ---
 
-### `/build <task>`
+### `/pipeline <task>`
 
 Chains `/brainstorm` and `/review-fix` around a parallel implementation phase. Brainstorm agents produce ranked design recommendations; the user approves one; developer agents implement it in parallel (with a conditional integration pass for cross-cutting interfaces); reviewer agents validate the result.
 
@@ -106,21 +104,21 @@ Agent Teams is an experimental Claude Code feature that lets a lead agent spawn,
 
 ## Cost
 
-These workflows are token-intensive by design — the value is in the diversity of perspectives.
+These workflows are token-intensive by design — the value is in the diversity of perspectives. Each agent gets its own context window (one full agent conversation).
 
-| Command | Default cost |
+| Command | Agent conversations (default settings) |
 |---------|-------------|
-| `/brainstorm` | ~13 context windows (3 round-leads + ~10 agents with tapering; round-isolated) |
+| `/brainstorm` | ~13 (3 round leads + ~10 agents across rounds) |
 | `/review-fix` | ~8 per iteration (3 reviewers + up to 4 developers + 2 verifiers) |
-| `/build` | ~40 for a full default run (brainstorm rounds are context-isolated) |
+| `/pipeline` | ~40 for a full run (brainstorm + implementation + review) |
 
-For smaller problems: `--rounds 2 --agents 3`. For known designs: `--skip-brainstorm`.
+Reduce cost with `--rounds 2 --agents 3`, or skip phases: `--skip-brainstorm`, `--skip-review`.
 
 ---
 
 ## Tips
 
 - **Use commands independently.** `/brainstorm` alone is great for architecture decisions. `/review-fix` alone works on any existing code.
-- **Checkpoints.** `/build` writes phase checkpoints to `.pipeline/`. If a run fails partway through, `--resume` picks up from the last completed phase (re-confirming approval gates rather than trusting the checkpoint).
-- **Triage gate.** `/review-fix` pauses before fixing and lets you choose which findings to address. Low-severity findings are surfaced but not automatically fixed.
-- **The brainstorm document persists.** Even after implementation and review, the design rationale lives in the output file — useful for onboarding or understanding why a particular approach was chosen.
+- **Checkpoints.** `/pipeline` writes phase checkpoints to `.pipeline/`. If a run fails, `--resume` picks up from the last completed phase.
+- **Triage gate.** `/review-fix` pauses before fixing and lets you choose which findings to address.
+- **Design rationale persists.** The brainstorm output file survives after implementation — useful for onboarding or understanding why a particular approach was chosen.

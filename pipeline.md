@@ -4,6 +4,8 @@ Full pipeline: structured brainstorm → user approval → parallel implementati
 
 Chains `/brainstorm` and `/review-fix` with an implementation phase between them. Use this for substantial new features or designs where the problem space benefits from multi-perspective deliberation before code is written.
 
+For individual phases, use `/brainstorm` or `/review-fix` directly.
+
 **Task:** $ARGUMENTS
 
 ---
@@ -240,6 +242,6 @@ Remaining: {count, with IDs and brief reasons}
 - **Token cost.** This is the most resource-intensive workflow. Brainstorm (default: ~13 context windows — 3 round-leads + ~10 agents with tapering) + Implementation (up to 4) + Review-fix (up to 8 per iteration × 3 iterations). For a full default run: ~40 context windows. Round isolation in the brainstorm phase prevents cross-round context accumulation. Use `--rounds 2 --agents 3` for smaller problems, or `--skip-brainstorm` if the design is already decided.
 - **Approval gates are load-bearing.** The brainstorm → implementation gate prevents building the wrong thing. The triage gate in review-fix prevents fixing non-issues. Unless `--auto` is set, always pause for user input at these points.
 - **The brainstorm document persists.** Even after implementation and review, the design rationale lives in the output file. This is valuable for onboarding, future changes, or understanding why a particular approach was chosen over alternatives.
-- **Incremental use.** You don't have to run the full pipeline. Use `/brainstorm` alone for design decisions. Use `/review-fix` alone for existing code. Use `/build --skip-brainstorm` when you already know what to build. Use `/build --skip-review` when you want design + implementation without the review loop.
+- **Incremental use.** You don't have to run the full pipeline. Use `/brainstorm` alone for design decisions. Use `/review-fix` alone for existing code. Use `/pipeline --skip-brainstorm` when you already know what to build. Use `/pipeline --skip-review` when you want design + implementation without the review loop.
 - **Design concerns from developers.** If a developer flags a concern during implementation that contradicts the brainstorm's design, take it seriously — they have more concrete context than the brainstorm agents did. Note it in the final summary and let the user decide whether to address it.
 - **Checkpoints.** Checkpoints do NOT contain finding evidence (file:line quotes), code snippets, full deliberation transcripts, or security-sensitive content — only structural decisions and artifact paths. The `--resume` flag reads the most recent checkpoint in `.pipeline/` and picks up from the last completed phase, but always re-confirms approval gates rather than trusting the checkpoint's record of prior approvals.
