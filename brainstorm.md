@@ -18,9 +18,11 @@ Multi-round brainstorming with diverse agent teams. Each round: independent idea
 
 ---
 
-## Role Pool
+## Roles
 
-Select agents from this pool each round. Each role thinks about problems in a fundamentally different way.
+Roles are the diversity mechanism. Each agent gets a role that defines how it thinks about the problem. The reference pool below covers common perspectives, but it is not exhaustive — you may and should synthesise new roles when the problem demands it.
+
+### Reference pool
 
 | Role | Perspective |
 |------|-------------|
@@ -37,15 +39,25 @@ Select agents from this pool each round. Each role thinks about problems in a fu
 | **API designer** | Interface contracts, extensibility, backward compatibility, developer ergonomics |
 | **Day-1 shipper** | MVP scope, cut aggressively, ship and iterate, what's good-enough-for-now |
 
+### Synthesising new roles
+
+When the problem has a domain or dimension not well covered by the reference pool, create a role for it. Give it a name and a one-line perspective description in the same format as the table above. Examples:
+
+- **Cost analyst** — Budget constraints, unit economics, cost-at-scale, "can we afford this?"
+- **Regulatory specialist** — Compliance requirements, legal exposure, audit trails, data sovereignty
+- **Accessibility engineer** — Screen readers, motor impairment, cognitive load, WCAG compliance
+
+Synthesised roles are first-class — they follow the same selection rules and carry the same weight as reference pool roles.
+
 ### Role selection rules
 
 Before each round, select {agents} roles following these rules:
 
-1. **Never repeat the same role in consecutive rounds.** Fresh eyes each time.
-2. **Balance expansive and constraining roles.** Each round MUST include at least one expansive role (creative inventor, systems architect, domain specialist) AND at least one constraining role (minimalist, security hardener, devil's advocate, day-1 shipper). Without this balance, rounds either generate fluff or kill everything.
-3. **Adapt to the problem.** If the problem is security-focused, include security in Round 1 but bring in usability in Round 2 to balance. If it's a greenfield design, front-load creative roles. If it's an optimisation problem, bring in performance early.
+1. **Never repeat the same role in consecutive rounds.** A role used in Round N cannot appear in Round N+1. Re-use after a gap is fine — a "creative inventor" in Round 1 and Round 3 sees completely different idea landscapes.
+2. **Balance expansive and constraining roles.** Each round MUST include at least one expansive role (creative inventor, systems architect, domain specialist, or equivalent) AND at least one constraining role (minimalist, security hardener, devil's advocate, day-1 shipper, or equivalent). Without this balance, rounds either generate fluff or kill everything.
+3. **Adapt to the problem.** If the problem is security-focused, include security in Round 1 but bring in usability in Round 2 to balance. If it's a greenfield design, front-load creative roles. If it's an optimisation problem, bring in performance early. Synthesise roles when the reference pool doesn't cover the problem's key dimensions.
 4. **Shift toward refinement in later rounds.** Round 1 should maximise divergence. Final round should stress-test for production readiness (ops, performance, API design).
-5. **State your selections.** Before spawning each round, tell the user which roles you picked and why.
+5. **State your selections.** Before spawning each round, tell the user which roles you picked and why. For synthesised roles, include the one-line perspective.
 
 ---
 
@@ -174,6 +186,8 @@ Use this template for every agent. Replace `{PROBLEM}`, `{ROLE}`, `{PERSPECTIVE}
 > ```
 >
 > **Length limits:** 100 words max per idea. Round 1 agents: propose 3-5 ideas. Later round agents: propose new ideas AND/OR argue for modifications to surviving ones. You may also argue to cut a surviving idea if you think it's weak.
+>
+> **Lead proposal:** If you propose more than 2 ideas, mark your strongest one with `[LEAD]` after the idea tag (e.g., `[I2] [LEAD] Title`). This signals to other agents where to focus scrutiny during the challenge phase. You may only mark one idea as lead.
 >
 > **Step 3 — Wait for the challenge-and-vote phase.** Do NOT respond to other agents yet. Wait for the lead's signal.
 

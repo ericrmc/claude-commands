@@ -1,6 +1,6 @@
 # Claude Code Pipeline Commands
 
-Three slash commands for structured multi-agent workflows in Claude Code. Inspired by [AgentCouncil](https://github.com/kiran-agentic/agentcouncil), built with commands instead of an MCP plugin.
+Slash commands for structured multi-agent workflows in Claude Code. Inspired by [AgentCouncil](https://github.com/kiran-agentic/agentcouncil), built with commands instead of an MCP plugin.
 
 These commands guide Claude through structured protocols but are not deterministic — Claude interprets the instructions each run, so the exact execution path may vary. For stricter process guarantees, multiple LLM backends, or formal deliberation tracking, use [AgentCouncil](https://github.com/kiran-agentic/agentcouncil) directly.
 
@@ -9,6 +9,7 @@ These commands guide Claude through structured protocols but are not determinist
 | `/brainstorm` | Multi-round ideation with diverse agent roles. Produces ranked recommendations that have survived cross-challenge and voting. |
 | `/review-fix` | Three independent reviewers find issues, then parallel developers fix them. Loops until clean. |
 | `/pipeline` | Chains brainstorm → user approval → parallel implementation → review-fix. The full design-to-verified-code workflow. |
+| `/meta/stress-test` | Structural audit of a command file or process design. Finds where the mechanism breaks, not whether the ideas are good. |
 
 ---
 
@@ -37,10 +38,11 @@ Open your Claude Code settings (`/config` or edit `~/.claude/settings.json`) and
 
 **2. Install the commands**
 
-Copy the three `.md` files to your Claude Code commands directory:
+Copy the `.md` files to your Claude Code commands directory:
 
 ```bash
 cp brainstorm.md pipeline.md review-fix.md ~/.claude/commands/
+cp -r meta/ ~/.claude/commands/meta/
 ```
 
 **3. Use them**
@@ -51,6 +53,7 @@ In any Claude Code session, type the slash command:
 /brainstorm how should we structure our API authentication layer?
 /review-fix src/auth/
 /pipeline add a rate limiting feature to the API
+/meta/stress-test brainstorm.md
 ```
 
 ---
@@ -77,6 +80,21 @@ Three reviewers (correctness, robustness, quality) independently analyse the tar
 - `--max-iterations N` — max review→fix loops (default: 3)
 - `--auto` — auto-fix all medium+ findings without triage approval
 - `--review-only` — stop after review, don't fix
+
+---
+
+### `/meta/stress-test <target>`
+
+Reads a command file or process description and audits its *structure* — parameter boundaries, rule conflicts, degenerate cases, and blind spots. This is not a content review; it answers "where does this mechanism break?" rather than "are these ideas good?"
+
+**When to use it:**
+- After writing or significantly modifying a command file, before relying on it in production
+- When a process produced surprising or low-quality results and you're not sure if the problem was the input or the mechanism
+- When you've added configurable parameters (`--rounds`, `--agents`, etc.) and want to verify the design holds across the full parameter space
+- Periodically, as a form of structural regression testing — the process may have accumulated assumptions that no longer hold
+
+**Flags:**
+- `--output PATH` — output file path (default: `stress-test-output.md`)
 
 ---
 
@@ -111,6 +129,7 @@ These workflows are token-intensive by design — the value is in the diversity 
 | `/brainstorm` | ~13 (3 round leads + ~10 agents across rounds) |
 | `/review-fix` | ~8 per iteration (3 reviewers + up to 4 developers + 2 verifiers) |
 | `/pipeline` | ~40 for a full run (brainstorm + implementation + review) |
+| `/meta/stress-test` | 1 (single agent, no teams) |
 
 Reduce cost with `--rounds 2 --agents 3`, or skip phases: `--skip-brainstorm`, `--skip-review`.
 
@@ -122,3 +141,4 @@ Reduce cost with `--rounds 2 --agents 3`, or skip phases: `--skip-brainstorm`, `
 - **Checkpoints.** `/pipeline` writes phase checkpoints to `.pipeline/`. If a run fails, `--resume` picks up from the last completed phase.
 - **Triage gate.** `/review-fix` pauses before fixing and lets you choose which findings to address.
 - **Design rationale persists.** The brainstorm output file survives after implementation — useful for onboarding or understanding why a particular approach was chosen.
+- **Stress-test your commands.** Agents inside a process can challenge each other's ideas but cannot challenge the process itself — they operate inside the frame the prompt sets. `/meta/stress-test` operates outside that frame. Run it after writing or changing a command file to catch structural issues before they surface as bad output.
