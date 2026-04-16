@@ -75,19 +75,23 @@ For example, with the default of 4: Round 1 uses 4, Rounds 2+ use 3. With `--age
 
 ## Round Isolation
 
-Each round runs as a **separate lead agent** with its own team. This prevents cross-round context accumulation — each round-lead's context contains only its own round's messages.
+Each round runs as a **separate lead agent** within a team created by the main orchestrator. This prevents cross-round context accumulation — each round-lead's context contains only its own round's messages.
 
 ### Orchestration flow
 
+The main orchestrator handles all team lifecycle management (create, spawn, delete) because team tools (`TeamCreate`, `TeamDelete`) are only available in the main orchestrator's environment — subagents cannot access them. Round-leads orchestrate their teams via `SendMessage`, which IS available to team members.
+
 ```
-Main orchestrator:
-  1. Spawn R1-lead agent → creates brainstorm-r1 team → writes brainstorm-r1-results.md + brainstorm-r1-transcript.md
-  2. Spawn R2-lead agent (reads r1-results.md) → creates brainstorm-r2 team → writes brainstorm-r2-results.md + brainstorm-r2-transcript.md
-  3. Spawn R3-lead agent (reads r2-results.md) → creates brainstorm-r3 team → writes brainstorm-r3-results.md + brainstorm-r3-transcript.md
-  4. Read all transcript files → synthesise final output
+Main orchestrator (per round):
+  1. TeamCreate brainstorm-r{n}
+  2. Spawn {agents} brainstorm agents into team (Agent with team_name="brainstorm-r{n}")
+  3. Spawn round-lead into team (Agent with team_name="brainstorm-r{n}", name="r{n}-lead")
+     → lead orchestrates via SendMessage → writes brainstorm-r{n}-results.md + brainstorm-r{n}-transcript.md
+  4. After lead completes: TeamDelete brainstorm-r{n}
+  5. Read results file, present summary to user, proceed to next round
 ```
 
-Each round-lead creates its own team (`brainstorm-r1`, `brainstorm-r2`, etc.) and shuts it down completely before writing results. The file-based handoff is the only communication channel between rounds.
+The file-based handoff (`brainstorm-r{n}-results.md`) is the only communication channel between rounds. The main orchestrator passes previous round results to the next round-lead via its spawn prompt.
 
 ### Two-file handoff per round
 
@@ -146,23 +150,45 @@ The `## Role Selection Notes for Next Round` section is optional but recommended
 
 ---
 
-## Round Structure (for each round-lead)
+## Round Structure
 
-The main orchestrator spawns a round-lead agent with instructions to follow this structure. The round-lead creates a team, runs the phases below, shuts down the team, and writes the two handoff files.
+Each round has two actors: the **main orchestrator** (creates/deletes the team, spawns agents) and the **round-lead** (a team member that orchestrates via `SendMessage`).
 
-### Phase A: DIVERGE
+### Main orchestrator: set up the round
 
-Before spawning, emit a status line: `[Round {n}/{total}] Spawning {agent count} agents: {role list}`
+Before each round, the main orchestrator:
 
-**Fetch team tools first.** The tools for creating and managing agent teams are deferred — they must be fetched before use. Call `ToolSearch` with `query: "select:TeamCreate,SendMessage,TeamDelete"` and wait for the schemas to load. Only proceed once these tools are available.
-
-Create a new team (`brainstorm-r{n}`) and spawn {round agent count} teammates with the selected roles.
+1. Selects roles for this round (see Role Selection Rules above).
+2. Emits a status line: `[Round {n}/{total}] Spawning {agent count} agents: {role list}`
+3. Creates the team: `TeamCreate` with `team_name: "brainstorm-r{n}"`.
+4. Spawns each brainstorm agent into the team using the Agent tool with `team_name: "brainstorm-r{n}"` and a descriptive `name` (e.g., `"creative-inventor"`, `"minimalist"`). Use the agent spawn prompt template below.
+5. Spawns the round-lead into the team: Agent tool with `team_name: "brainstorm-r{n}"`, `name: "r{n}-lead"`, and the round-lead prompt (see below).
 
 **Do not summarise or analyse the codebase before spawning agents.** The problem statement and any surviving ideas from previous rounds are sufficient context. Reading and summarising the codebase dilutes the prompt with potentially inaccurate information and wastes context window. If agents need to understand specific code to brainstorm effectively, they can read it themselves.
 
+### Main orchestrator: tear down the round
+
+After the round-lead completes (its Agent invocation returns):
+
+1. Call `TeamDelete` to clean up the team.
+2. Read `brainstorm-r{n}-results.md` and present the between-rounds summary to the user.
+3. Proceed to the next round (or final synthesis if this was the last round).
+
+### Round-lead prompt
+
+The round-lead is spawned as a team member. It does NOT create or delete teams — it orchestrates the brainstorm agents that are already in the team via `SendMessage`. Include the following in the round-lead's spawn prompt:
+
+> You are the lead for Round {n} of a brainstorm. Your team has {agent count} brainstorm agents already spawned and waiting. Orchestrate them through the phases below using SendMessage, then write the handoff files and send shutdown requests to all agents.
+>
+> {Include the problem statement, round context (surviving ideas from previous rounds if applicable), and the full Phase A/B/Convergence instructions below.}
+
+### Phase A: DIVERGE (round-lead instructions)
+
+The brainstorm agents have already been spawned by the main orchestrator. Broadcast to all agents (`SendMessage` with `to: "*"`) to begin ideation.
+
 #### Agent spawn prompt template
 
-Use this template for every agent. Replace `{PROBLEM}`, `{ROLE}`, `{PERSPECTIVE}`, and the round-specific context block.
+The main orchestrator uses this template when spawning each brainstorm agent. Replace `{PROBLEM}`, `{ROLE}`, `{PERSPECTIVE}`, and the round-specific context block.
 
 > You are a brainstorming agent. Your job is to think about this problem through a specific lens and propose ideas.
 >
@@ -244,7 +270,7 @@ Before moving to convergence, scan each agent's challenge-and-vote post for STRO
 
 After all agents post their combined challenge-and-vote messages (if any agent has not posted after the others have all completed, proceed with available responses and note the non-response):
 
-1. **Shut down all agents and clean up the team.**
+1. **Shut down all brainstorm agents.** Send a shutdown request to each agent via `SendMessage` with `message: {type: "shutdown_request"}`. Do NOT call `TeamDelete` — the main orchestrator handles that after this round-lead completes.
 2. **Count support.** For each idea, tally how many agents voted for it.
 3. **Survival threshold: majority support (external votes only).** Self-votes are not permitted. If an agent proposed a MERGE [Ia]+[Ib], they may not vote for either constituent idea, but may vote for other merged combinations they did not propose. When agents ≥ 3, the majority threshold is ≥2 external votes. When only 2 agents are in a round, the threshold is ≥1 external vote. An idea survives if it meets this threshold.
 4. **Apply a soft cap of 10.** If more than 10 ideas clear the threshold, keep only the top 10 by vote count. Break ties by preferring ideas that survived challenges without needing modification.
@@ -263,7 +289,7 @@ Where `{next action}` is either "Starting Round {n+1}." or "Moving to final outp
 
 ### Between rounds (main orchestrator)
 
-After the round-lead agent completes, read `brainstorm-r{n}-results.md` and present to the user:
+After the round-lead agent completes (its Agent invocation returns), call `TeamDelete` to clean up `brainstorm-r{n}`, then read `brainstorm-r{n}-results.md` and present to the user:
 
 ```
 ## Round {n} Complete
