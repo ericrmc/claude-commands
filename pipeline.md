@@ -261,6 +261,29 @@ Compile a list of all files created or modified and all tests added. This become
 
 **Required fields for Phase 4:** The review-fix target must include: list of files created, list of files modified, and list of tests added. If any list is empty, state "None" explicitly.
 
+### Write implementation summary
+
+Write `.pipeline/implementation-summary.md` from the developer completion summaries. This scopes the review phase to the actual changes rather than reviewing entire files from scratch.
+
+```markdown
+# Implementation Summary
+
+## Design intent
+{one-line description of the approved design direction}
+
+## Changes
+{for each file changed:}
+- {file path}: {one-line description of what was changed and why}
+
+## Tests added
+- {list of test files created or modified}
+
+## Files to review
+{list of all files created or modified}
+```
+
+Keep each file's description to one line — enough for a reviewer to know what to look for, not a full diff.
+
 ---
 
 ## Phase 4: REVIEW-FIX
@@ -269,8 +292,20 @@ Unless `--skip-review` was specified:
 
 Follow the `/review-fix` protocol. Target the files changed during Phase 3 (including any files touched by the integration developer). Pass `--max-iterations {max-review-iterations}`. If `--auto` is set, also pass `--auto`.
 
+**Scoping context for reviewers:** When spawning reviewers, prepend the following context block to each reviewer's prompt (before their lens-specific instructions). Read `.pipeline/implementation-summary.md` and include it:
+
+> <change-context>
+> You are reviewing changes made during a pipeline implementation phase, not reviewing the files from scratch.
+>
+> {contents of .pipeline/implementation-summary.md}
+>
+> **Scope your review to these changes.** Focus on whether the described changes are correct, complete, and don't introduce new problems. Pre-existing issues outside the scope of these changes are not findings unless they directly interact with or are worsened by the changes.
+> </change-context>
+
+This context block is added by the pipeline only — when `/review-fix` is run standalone (without a pipeline), no scoping context is added and reviewers review the full target.
+
 The review-fix loop will:
-1. Review the implementation with 3 independent reviewers
+1. Review the implementation with 3 independent reviewers (scoped to changes)
 2. Triage findings (present to user or auto-fix medium+)
 3. Fix findings with parallel developers
 4. Verify fixes
