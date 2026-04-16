@@ -156,6 +156,8 @@ Before spawning, emit a status line: `[Round {n}/{total}] Spawning {agent count}
 
 Create a new team (`brainstorm-r{n}`) and spawn {round agent count} teammates with the selected roles.
 
+**Do not summarise or analyse the codebase before spawning agents.** The problem statement and any surviving ideas from previous rounds are sufficient context. Reading and summarising the codebase dilutes the prompt with potentially inaccurate information and wastes context window. If agents need to understand specific code to brainstorm effectively, they can read it themselves.
+
 #### Agent spawn prompt template
 
 Use this template for every agent. Replace `{PROBLEM}`, `{ROLE}`, `{PERSPECTIVE}`, and the round-specific context block.
@@ -373,6 +375,7 @@ Show:
 
 ## Notes
 
+- **Don't pre-summarise the codebase.** The problem statement is the prompt. Do not read, analyse, or summarise the codebase to "give agents context" — this dilutes the prompt with a lossy summary that introduces errors and burns context window. Agents can read code themselves if they need to.
 - **Diversity is the mechanism.** If you pick 4 similar roles, the brainstorm collapses into groupthink. The value comes from genuinely different perspectives colliding. Review your role selections critically.
 - **History carries forward.** Later rounds MUST see what survived and what was challenged. The results file handoff carries this between rounds — agents don't need the full transcript, just the compact surviving-idea list.
 - **Idea count trajectory.** Round 1 with 4 agents × 3-5 ideas = 12-20 raw ideas. Converging to 8 cuts ~50-60%. By the final round you should have 3-5 strong, well-tested recommendations. If you end with more than 8, your convergence is too loose. If you end with fewer than 3, it's too aggressive.
