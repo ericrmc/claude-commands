@@ -1,4 +1,4 @@
-# Claude Code Pipeline Commands
+# Claude Agent Teams Pipeline Commands
 
 Slash commands for structured multi-agent workflows in Claude Code. Inspired by [AgentCouncil](https://github.com/kiran-agentic/agentcouncil), built with commands instead of an MCP plugin.
 
