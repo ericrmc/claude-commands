@@ -96,6 +96,16 @@ Each round-lead writes two files:
 1. **`brainstorm-rN-results.md`** (compact, structured) — what the next round-lead reads as input. ~1-2k tokens.
 2. **`brainstorm-rN-transcript.md`** (detailed, append-only) — full agent ideas, challenges, and votes. Reference archive for final synthesis.
 
+**Required fields for downstream consumption.** Every results file MUST include all of the following. If any are missing, the next round-lead cannot reliably consume the handoff:
+
+- **Surviving idea IDs and titles** — each surviving idea must have a unique `[S{n}]` tag and a title.
+- **One-line descriptions** — every surviving idea needs a description, not just a title.
+- **Vote counts** — `Support: X/Y votes` for each surviving idea. The next round uses these to gauge strength.
+- **Unresolved dissent** — the `## Unresolved Dissent` section must be present even if empty (write "None." if no dissent). Later rounds use this to assign scrutiny.
+- **Cut ideas with reasons** — the `## Cut Ideas` section must list every idea that didn't survive with its strongest objection.
+
+The `## Role Selection Notes for Next Round` section is optional but recommended. All other sections above are mandatory.
+
 **Results file format:**
 ```markdown
 # Round N Results
@@ -114,16 +124,6 @@ Each round-lead writes two files:
 ## Role Selection Notes for Next Round
 - Suggested roles and reasoning
 ```
-
-**Required fields for downstream consumption.** Every results file MUST include all of the following. If any are missing, the next round-lead cannot reliably consume the handoff:
-
-- **Surviving idea IDs and titles** — each surviving idea must have a unique `[S{n}]` tag and a title.
-- **One-line descriptions** — every surviving idea needs a description, not just a title.
-- **Vote counts** — `Support: X/Y votes` for each surviving idea. The next round uses these to gauge strength.
-- **Unresolved dissent** — the `## Unresolved Dissent` section must be present even if empty (write "None." if no dissent). Later rounds use this to assign scrutiny.
-- **Cut ideas with reasons** — the `## Cut Ideas` section must list every idea that didn't survive with its strongest objection.
-
-The `## Role Selection Notes for Next Round` section is optional but recommended. All other sections above are mandatory.
 
 **Transcript file format:**
 ```markdown
@@ -197,7 +197,7 @@ Use this template for every agent. Replace `{PROBLEM}`, `{ROLE}`, `{PERSPECTIVE}
 >
 > **Length limits:** 100 words max per idea. Round 1 agents: propose 3-5 ideas. Later round agents: propose new ideas AND/OR argue for modifications to surviving ones. You may also argue to cut a surviving idea if you think it's weak.
 >
-> **Lead proposal:** If you propose more than 2 ideas, mark your strongest one with `[LEAD]` after the idea tag (e.g., `[I2] [LEAD] Title`). This signals to other agents where to focus scrutiny during the challenge phase. You may only mark one idea as lead.
+> **Lead proposal:** Mark your strongest idea with `[LEAD]` after the idea tag (e.g., `[I2] [LEAD] Title`). This signals to other agents where to focus scrutiny during the challenge phase. Mark exactly one idea as lead.
 >
 > **Step 3 — Stop.** Your task for this phase is complete. Do NOT read or respond to other agents' messages. You will receive a new message from the lead when the challenge-and-vote phase begins.
 
@@ -234,7 +234,7 @@ If agents start posting follow-ups, broadcast: *"Finalise your positions — we'
 
 #### Compliance check
 
-Before moving to convergence, scan each agent's challenge-and-vote post for STRONG/WEAK/MODIFY/MERGE labels and VOTE lines. If any agent's post is missing these required markers, send a one-shot correction: *"Your response is missing the required challenge labels (STRONG/WEAK/MODIFY/MERGE) and/or VOTE lines. Please repost using the format specified in your instructions."* Proceed after one correction attempt regardless — do not loop. If an agent's challenge-and-vote post remains unformatted after correction, the lead must manually extract any discernible votes or challenge assessments from the unformatted text and include them in the convergence tally. Note the extraction in the lead notes.
+Before moving to convergence, scan each agent's challenge-and-vote post for STRONG/WEAK/MODIFY/MERGE labels. Also check for VOTE lines — but note that an agent may legitimately post only challenge labels with no votes if they find no ideas worth supporting. Only flag as non-compliant if challenge labels are missing. If challenge labels are present but VOTE lines are absent, accept the post as-is. If challenge labels are missing, send a one-shot correction: *"Your response is missing the required challenge labels (STRONG/WEAK/MODIFY/MERGE). Please repost using the format specified in your instructions."* Proceed after one correction attempt regardless — do not loop. If an agent's challenge-and-vote post remains unformatted after correction, the lead must manually extract any discernible votes or challenge assessments from the unformatted text and include them in the convergence tally. Note the extraction in the lead notes.
 
 ### Convergence
 

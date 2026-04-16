@@ -38,7 +38,7 @@ Read `~/.claude/commands/brainstorm.md` and follow its full protocol, using the 
 
 This produces a brainstorm output markdown file with ranked recommendations, plus per-round working files (`brainstorm-rN-results.md` and `brainstorm-rN-transcript.md`).
 
-**Required fields for Phase 2:** The brainstorm output must contain, for each surviving recommendation: title, one-line description, support count (X/Y agents), and dissent summary (role + concern, or "None"). Phase 2 cannot present recommendations without these.
+**Required fields for Phase 2:** The brainstorm output must contain, for each surviving recommendation: title, one-line description, support count (X/Y external votes), and dissent summary (role + concern, or "None"). Phase 2 cannot present recommendations without these.
 
 When the brainstorm is complete:
 

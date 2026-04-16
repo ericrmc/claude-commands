@@ -225,16 +225,15 @@ Create a new agent team with **2 verifier teammates**.
 
 > You are verifying that code fixes correctly resolve their original findings.
 >
-> **Original findings that were fixed:**
->
+> <findings>
 > {list each finding: ID, title, severity, location, what the fix should have addressed}
+> </findings>
 >
-> **Files that were changed:**
->
+> <changed-files>
 > {list of modified files from the developer phase}
+> </changed-files>
 >
-> ### Your task
->
+> <rules>
 > 1. For each finding, check the changed code and report one of:
 >    - **VERIFIED** — the fix resolves the finding
 >    - **NOT_FIXED** — the original problem is still present
@@ -252,8 +251,11 @@ Create a new agent team with **2 verifier teammates**.
 > 3. **Scope:** Only review the changes and their immediate context. Do NOT re-review the whole codebase.
 >
 > 4. **Discuss with the other verifier.** If you disagree on whether something is VERIFIED or NOT_FIXED, discuss and try to reach agreement. If you can't agree, flag it for the lead with both positions and evidence.
+> </rules>
 >
-> 5. Mark your task as complete when done.
+> <completion>
+> Mark your task as complete when done.
+> </completion>
 
 **Lead resolution for verifier disagreements:** If verifiers flag a disagreement, read both positions and the relevant code. Rule in favour of the position with more specific evidence. If evidence is equal, rule NOT_FIXED — it's cheaper to re-fix than to miss a real issue. Note the disagreement in the iteration summary.
 
@@ -283,7 +285,7 @@ On iteration 2+, two checks fire. Either one causes immediate escalation to the 
 
 **Check 1 — ID-based.** Compare the current NOT_FIXED/REGRESSED finding IDs against the previous iteration's list. If any finding ID (e.g., R3, R7) appears as NOT_FIXED or REGRESSED in **two consecutive iterations**, stop.
 
-**Check 2 — Count-based.** Compare the total unresolved count (NOT_FIXED + REGRESSED + new issues) against the previous iteration's total. If the count has not decreased, stop. This catches new-issue chains where fixing R1 creates N1, fixing N1 creates N2 — different IDs each time, but the total never drops.
+**Check 2 — Severity-weighted count.** Compare the total unresolved count against the previous iteration's, weighted by severity: critical = 4, high = 3, medium = 2, low = 1. If the weighted total has not decreased, stop. This catches new-issue chains (fixing R1 creates N1, fixing N1 creates N2 — different IDs but total never drops) while allowing progress where a high-severity fix introduces a low-severity side effect.
 
 Report to the user:
 
