@@ -43,15 +43,25 @@ Pick `{agent count}` roles from the role pool (Appendix A). Rules:
 | Process change, tool rollout, adoption | Adoption realist, change management thinker | The best solution fails if nobody can operate it. |
 | Code-focused (bugs, refactoring, features) | Pragmatic engineer, minimalist | Stay in solution/implementation space. |
 
-### Step 2: Create team and spawn agents
+### Step 2: Gather constraints (Round 1 only)
+
+Before the first round, ask the user:
+
+> **Before we start — any constraints, prior decisions, or ruled-out approaches I should give agents as context?** For example: approaches already tried, known technical constraints, decisions already made. Type "none" to start immediately.
+
+If the user provides input, include it in every agent's spawn prompt as a `<constraints>` block (see Appendix B). This is ground truth, not steering toward a solution — it prevents agents from wasting time on dead ends you've already explored.
+
+If `--auto` is set, skip this step.
+
+### Step 3: Create team and spawn agents
 
 1. Print: `[Round {n}/{total}] Spawning {agent count} agents: {role list}`
 2. `TeamCreate` with `team_name: "brainstorm-r{n}"`
-3. Spawn each agent using the Agent tool with `team_name: "brainstorm-r{n}"`, a descriptive `name`, `run_in_background: true`, and the spawn prompt from Appendix B.
+3. Spawn each agent using the Agent tool with `team_name: "brainstorm-r{n}"`, a descriptive `name`, `run_in_background: true`, and the spawn prompt from Appendix B. Include any user constraints and between-round steering in the prompt.
 
 Do not summarise or analyse the codebase before spawning. Agents can read code themselves if needed.
 
-### Step 3: Broadcast ideation
+### Step 4: Broadcast ideation
 
 `SendMessage` to `"*"`:
 
@@ -61,7 +71,7 @@ Wait for all agents to post. If one hasn't posted after the rest complete, proce
 
 **Compliance check:** Scan posts for `[I{n}]` tags. If missing, send one correction: *"Your response is missing the required [I{n}] format markers. Please repost."* Proceed after one attempt regardless.
 
-### Step 4: Broadcast challenge & vote
+### Step 5: Broadcast challenge & vote
 
 Print: `[Round {n}] All {agent count} agents posted ideas. Starting challenge-and-vote phase.`
 
@@ -81,7 +91,7 @@ If agents post follow-ups, broadcast: *"Finalise your positions — we're moving
 
 **Compliance check:** Scan for STRONG/WEAK/MODIFY/MERGE labels. If missing, send one correction. If still unformatted, manually extract what you can and note it.
 
-### Step 5: Convergence
+### Step 6: Convergence
 
 1. Send shutdown request to all agents: `SendMessage` with `message: {type: "shutdown_request"}`
 2. Tally external votes per idea (no self-votes). Threshold: ≥2 votes when agents ≥ 3, ≥1 vote when 2 agents.
@@ -89,7 +99,7 @@ If agents post follow-ups, broadcast: *"Finalise your positions — we're moving
 4. **Rescue** up to 2 ideas cut by role-structural opposition rather than evidence. Mark as `[lead-rescued]`.
 5. Record cut ideas with vote counts and strongest objections.
 
-### Step 6: Write handoff files
+### Step 7: Write handoff files
 
 Write `brainstorm-r{n}-results.md` and `brainstorm-r{n}-transcript.md` using the formats in Appendix C.
 
@@ -99,7 +109,7 @@ Print: `[Status] round={n} agents_responded={n/m} ideas_proposed={count} ideas_s
 
 Print: `[Round {n}] Convergence complete. {survived} ideas survive, {cut} cut. {Starting Round {n+1} | Moving to final output}.`
 
-### Step 7: Tear down and present
+### Step 8: Tear down, present, and steer
 
 1. `TeamDelete` to clean up `brainstorm-r{n}`.
 2. Present between-rounds summary to user:
@@ -119,6 +129,14 @@ Full transcript: brainstorm-r{n}-transcript.md
 ```
 
 **Early stopping:** If the surviving idea set is unchanged from the previous round (same ideas, no new dissent), skip remaining rounds and proceed to final synthesis. Print: `[Status] early_stop=true reason=converged round={n} remaining_rounds_skipped={count}`
+
+**Between-round steering (if rounds remain).** After presenting the summary, ask:
+
+> **Any corrections or context before the next round?** For example: "drop S3, we tried that last quarter and it failed because X" or "agents are assuming Y but actually Z." Type "continue" to proceed without changes.
+
+If the user provides input, include it in the next round's agent spawn prompts as a `<steering>` block (see Appendix B). Steering provides constraints and ground truth — it rules out dead ends and corrects false assumptions. It does not direct agents toward a preferred solution.
+
+If `--auto` is set, skip the steering prompt and continue.
 
 **Idle notifications:** Treat the first idle notification after a substantive message as "agent is done." Ignore repeats.
 
@@ -222,6 +240,12 @@ Synthesise new roles when the problem demands it. Give each a name and one-line 
 > **Your role:** {ROLE}
 > **Your perspective:** {PERSPECTIVE}
 >
+> {Include if user provided constraints in Step 2:}
+> <constraints>
+> The following are ground truth from the user — known facts, prior decisions, or ruled-out approaches. Do not propose ideas that contradict these.
+> {user's constraints}
+> </constraints>
+>
 > {For Round 1:}
 > This is the first round. No prior ideas — start fresh.
 >
@@ -230,6 +254,12 @@ Synthesise new roles when the problem demands it. Give each a name and one-line 
 > - [{ID}] {title} — {description}. Dissent: {concern or "none"}.
 >
 > You may: build on these, propose modifications, argue to cut, or propose new ideas.
+>
+> {Include if user provided steering after the previous round:}
+> <steering>
+> The user provided the following corrections or context after the last round. Treat these as ground truth:
+> {user's steering input}
+> </steering>
 >
 > **Post your ideas** in a single message to all teammates. For each:
 > ```
