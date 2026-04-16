@@ -145,3 +145,11 @@ Reduce cost with `--rounds 2 --agents 3`, or skip phases: `--skip-brainstorm`, `
 - **Design rationale persists.** The brainstorm output file survives after implementation — useful for onboarding or understanding why a particular approach was chosen.
 - **Stress-test your commands.** Agents inside a process can challenge each other's ideas but cannot challenge the process itself — they operate inside the frame the prompt sets. `/meta/stress-test` operates outside that frame. Run it after writing or changing a command file to catch structural issues before they surface as bad output.
 - **Re-run to converge.** Each pass catches what the previous one missed. Run `/pipeline` or `/review-fix` again on the same target and the severity of findings drops until there's nothing left worth fixing.
+
+---
+
+## Why the pipeline doesn't auto-loop
+
+Within a single run, `/review-fix` already loops up to `--max-review-iterations` times with oscillation detection. Raise the default of 3 if needed.
+
+Across runs, the pipeline is deliberately manual. Chained brainstorms have no memory of prior rounds, no convergence guarantee, and no rollback point without a commit between cycles. The intended workflow is: run, review the diff, commit, then re-run if another pass is worthwhile.
