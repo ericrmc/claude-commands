@@ -19,10 +19,10 @@ For individual phases, use `/brainstorm` or `/review-fix` directly.
    - `--keep N` — ideas to carry per brainstorm round (default: 8)
    - `--agents N` — agents per brainstorm round (default: 4)
    - `--max-review-iterations N` — review-fix iterations (default: 3)
-   - `--auto` — skip approval gates, proceed with top recommendation automatically
-   - `--skip-brainstorm` — skip straight to implementation (provide a design description in the args)
+   - `--auto` — skip approval gates, proceed with top recommendation automatically. Passed through to review-fix as `--auto` (auto-fix medium+ findings without triage).
+   - `--skip-brainstorm` — skip Phase 1 and Phase 2. Your arguments become the design brief directly — be specific about what to build and how. Phase 3 uses the arguments as the design description, with no brainstorm-derived risks, rejected approaches, or dissenting views available.
    - `--skip-review` — stop after implementation, don't review
-   - `--resume` — resume from the most recent checkpoint in `.pipeline/`. Read the most recent checkpoint (by filename timestamp; if multiple checkpoints share the same timestamp prefix, use the one with the highest `phase_completed` value — later phases take precedence; if still ambiguous, ask the user which checkpoint to resume from). Extract: (1) `phase_completed` — determines where to resume from; (2) `approved_design` — re-present this to the user and re-confirm before proceeding; (3) `brainstorm_output_path` — re-read this file to restore the design brief; (4) `files_created`/`files_modified` — use these as the Phase 4 review target if resuming after implementation. If a required field is missing from the checkpoint, ask the user to supply it. Re-confirms all outstanding approval gates before continuing — does not trust checkpoint's record of prior approvals.
+   - `--resume` — resume from the most recent checkpoint in `.pipeline/`. Read the most recent checkpoint (by filename timestamp; if multiple checkpoints share the same timestamp prefix, use the one with the highest `phase_completed` value — later phases take precedence; if still ambiguous, ask the user which checkpoint to resume from). Extract: (1) `phase_completed` — determines where to resume from; (2) `approved_design` — re-present this to the user and re-confirm before proceeding; (3) `design_brief_path` — read `.pipeline/design-brief.md` to restore the design brief deterministically; (4) `brainstorm_output_path` — for reference; (5) `files_created`/`files_modified` — use these as the Phase 4 review target if resuming after implementation. If a required field is missing from the checkpoint, ask the user to supply it. Re-confirms all outstanding approval gates before continuing — does not trust checkpoint's record of prior approvals. **Exception:** if `--auto` is also set, skip re-confirmation and proceed automatically. `--auto` takes precedence over `--resume`'s re-confirmation requirement.
 
 Before writing the first checkpoint, ensure the `.pipeline/` directory exists. Create it if it does not.
 
@@ -50,6 +50,23 @@ Proceed to Phase 2.
 
 ## Phase 2: APPROVE DESIGN
 
+If `--skip-brainstorm` is set, skip this phase entirely — proceed to Phase 3 with the arguments as the design description.
+
+### Zero-recommendation fallback
+
+If the brainstorm produced zero surviving recommendations, present:
+
+> **Brainstorm complete, but no recommendations survived.** All ideas were cut during convergence. You can:
+> 1. Re-run with different parameters (e.g., `--rounds 2 --agents 3`)
+> 2. Describe a design manually — I'll use the brainstorm's honourable mentions and dissenting views as context
+> 3. Stop here
+
+If `--auto`, stop and report: "Auto mode cannot proceed — brainstorm produced no recommendations. Re-run with adjusted parameters or without `--auto`."
+
+Wait for the user's response before continuing.
+
+### Normal approval
+
 Present the brainstorm's top recommendations to the user:
 
 > **Brainstorm complete.** Here are the top recommendations:
@@ -68,13 +85,19 @@ If `--auto`, proceed with option 1.
 
 **Wait for the user's response before continuing.** This is the most important approval gate — it determines what gets built.
 
+**If the user picks option 3:** Their description replaces the "what to build" and "why this approach" sections of the design brief. However, **retain all brainstorm-derived risks, rejected approaches, and dissenting views** in the brief — these are load-bearing and apply regardless of which design direction the user chooses. Prompt the user: *"Your description will be used for what to build. Risks, rejected approaches, and dissenting views from the brainstorm will still be included in the developer brief."*
+
 Record the approved design direction for use in the implementation prompts.
 
 Print: `[Pipeline] Design approved: {title}. Planning implementation.`
 
-Write a checkpoint to `.pipeline/checkpoint-{YYYYMMDD-HHmmss}.md` with: `phase_completed: design_approved`, `approved_design: {title of chosen recommendation}`, `approved_option: {option number chosen}`, `timestamp: {ISO timestamp}`, `pipeline_version: 1.0`.
+### Persist design brief
 
-Before proceeding to Phase 3, confirm silently: (1) User has explicitly chosen a design direction? (2) Approved recommendation recorded? If any check fails, re-present the approval gate.
+Extract the design brief (see Phase 3's "Prepare the design brief" section) and write it to `.pipeline/design-brief.md`. This makes the brief a concrete artifact — deterministic on resume, reviewable, and editable.
+
+Write a checkpoint to `.pipeline/checkpoint-{YYYYMMDD-HHmmss}.md` with: `phase_completed: design_approved`, `approved_design: {title of chosen recommendation}`, `approved_option: {option number chosen}`, `design_brief_path: .pipeline/design-brief.md`, `timestamp: {ISO timestamp}`, `pipeline_version: 1.0`.
+
+Before proceeding to Phase 3, confirm silently: (1) User has explicitly chosen a design direction? (2) Approved recommendation recorded? (3) Design brief written to `.pipeline/design-brief.md`? If any check fails, re-present the approval gate.
 
 ---
 
@@ -110,7 +133,11 @@ Set up task dependencies so blocked tasks don't get claimed until their dependen
 
 #### Prepare the design brief
 
-Before spawning developers, extract a **design brief** from the brainstorm output. Do not pass the full document — it contains rejected ideas, process history, and deliberation noise that will confuse developers. Extract only:
+If `.pipeline/design-brief.md` already exists (from a previous run or Phase 2), read it directly — do not re-extract. This ensures deterministic briefs across resumes.
+
+If `--skip-brainstorm` is set, the user's arguments are the design brief. Write them to `.pipeline/design-brief.md` with a note that brainstorm-derived sections (risks, rejected approaches, dissenting views) are unavailable. Developers should apply their own judgement for these.
+
+Otherwise, extract a **design brief** from the brainstorm output. Do not pass the full document — it contains rejected ideas, process history, and deliberation noise that will confuse developers. Extract only:
 
 1. **What to build** — the recommendation's description in full
 2. **Why this approach** — a short rationale paragraph covering why this was chosen over the main alternatives (so developers don't silently re-introduce rejected approaches)
@@ -122,6 +149,8 @@ Before spawning developers, extract a **design brief** from the brainstorm outpu
 **Brief length guidance:** Aim for concise, focused language throughout. Do not truncate or summarize the "Known risks to build around" or "Relevant concerns" sections — these are load-bearing and developers who miss them will introduce the exact problems the brainstorm flagged. Cut background rationale prose instead.
 
 Do NOT include: cut ideas, honourable mentions, the process log, or the full challenge history.
+
+If the brief was not already written to `.pipeline/design-brief.md` during Phase 2, write it now.
 
 #### Developer spawn prompt
 
@@ -167,19 +196,36 @@ Do NOT include: cut ideas, honourable mentions, the process log, or the full cha
 
 ### Wait and collect
 
-Wait for all developers to complete. Collect their summaries. If any developer flagged design concerns, note them — they may surface as review findings.
+Wait for all developers to complete. Collect their summaries.
 
 **Integration check:** Review each developer's completion summary. If 2 or more developers' "Interface references" sections reference the same file path, module name, or function name, spawn one additional sequential integration developer with this prompt:
 
-> You are an integration developer. The parallel implementation phase is complete. Your job is narrow: verify that the interface contracts between tasks are consistent. Read the developer completion summaries and the files they reference. Look for mismatched function signatures, inconsistent type definitions, module exports that don't match their imports, and shared config or entry-point files that multiple tasks touched. Fix only these interface-level mismatches — do not refactor implementations. When done, message the lead with what you changed and what you verified.
+> You are an integration developer. The parallel implementation phase is complete. Your job is narrow: verify that the interface contracts between tasks are consistent. Read the developer completion summaries and the files they reference. Look for mismatched function signatures, inconsistent type definitions, module exports that don't match their imports, and shared config or entry-point files that multiple tasks touched. Fix only these interface-level mismatches — do not refactor implementations. Run the full test suite after making changes. When done, message the lead with: what you changed, what you verified, which files you touched, and test results.
 
 If all developers reported independent tasks with no shared interface references, skip this step.
 
 Shut down all developers and clean up the team.
 
+### Developer concern gate
+
+If any developer flagged design concerns during implementation, present them to the user before proceeding to review:
+
+> **Developer concern(s) raised during implementation:**
+>
+> {for each: developer task, concern description}
+>
+> These may indicate the brainstorm's design assumptions don't hold in practice. How would you like to proceed?
+> 1. Proceed to review — address concerns later if they surface as findings *(default)*
+> 2. Pause — I'll address these concerns before review
+> 3. Stop — these concerns change the design direction
+
+If `--auto`, proceed with option 1 but include the concerns prominently in the final summary.
+
+If no developers flagged concerns, skip this gate.
+
 Print: `[Pipeline] Implementation complete. {n} files changed. Starting review.`
 
-Write a checkpoint to `.pipeline/checkpoint-{YYYYMMDD-HHmmss}.md` with: `phase_completed: implementation`, `files_created: {list}`, `files_modified: {list}`, `developer_concerns: {any concerns flagged}`, `timestamp: {ISO timestamp}`, `pipeline_version: 1.0`.
+Write a checkpoint to `.pipeline/checkpoint-{YYYYMMDD-HHmmss}.md` with: `phase_completed: implementation`, `files_created: {list}`, `files_modified: {list}`, `integration_files_touched: {list, if integration developer ran}`, `developer_concerns: {any concerns flagged}`, `timestamp: {ISO timestamp}`, `pipeline_version: 1.0`.
 
 Before proceeding to Phase 4, confirm silently: (1) Shutdown request sent to all developer agents and all have confirmed completion or gone idle? (2) All developer completion summaries collected? (3) Full list of created/modified files compiled? If any check fails, follow up with the relevant developer before proceeding.
 
@@ -193,7 +239,7 @@ Compile a list of all files created or modified and all tests added. This become
 
 Unless `--skip-review` was specified:
 
-Read `~/.claude/commands/review-fix.md` and follow its full protocol. Target the files changed during Phase 3. Pass `--max-iterations {max-review-iterations}`.
+Read `~/.claude/commands/review-fix.md` and follow its full protocol. Target the files changed during Phase 3 (including any files touched by the integration developer). Pass `--max-iterations {max-review-iterations}`. If `--auto` is set, also pass `--auto`.
 
 The review-fix loop will:
 1. Review the implementation with 3 independent reviewers
@@ -231,6 +277,10 @@ Total findings: {count}
 Fixed and verified: {count}
 Remaining: {count, with IDs and brief reasons}
 
+### Developer Concerns
+{if any: list each concern with the developer's assessment and current status (addressed during review / still open)}
+{if none: "None raised."}
+
 ### Summary
 {2-3 sentence assessment: was the design implemented cleanly? are there open concerns? what should the user look at first?}
 ```
@@ -240,8 +290,10 @@ Remaining: {count, with IDs and brief reasons}
 ## Notes
 
 - **Token cost.** This is the most resource-intensive workflow. Brainstorm (default: ~13 context windows — 3 round-leads + ~10 agents with tapering) + Implementation (up to 4) + Review-fix (up to 8 per iteration × 3 iterations). For a full default run: ~40 context windows. Round isolation in the brainstorm phase prevents cross-round context accumulation. Use `--rounds 2 --agents 3` for smaller problems, or `--skip-brainstorm` if the design is already decided.
-- **Approval gates are load-bearing.** The brainstorm → implementation gate prevents building the wrong thing. The triage gate in review-fix prevents fixing non-issues. Unless `--auto` is set, always pause for user input at these points.
+- **Approval gates are load-bearing.** The brainstorm → implementation gate prevents building the wrong thing. The triage gate in review-fix prevents fixing non-issues. Unless `--auto` is set, always pause for user input at these points. `--auto` takes precedence over `--resume`'s re-confirmation — when both are set, resume proceeds without pausing.
 - **The brainstorm document persists.** Even after implementation and review, the design rationale lives in the output file. This is valuable for onboarding, future changes, or understanding why a particular approach was chosen over alternatives.
-- **Incremental use.** You don't have to run the full pipeline. Use `/brainstorm` alone for design decisions. Use `/review-fix` alone for existing code. Use `/pipeline --skip-brainstorm` when you already know what to build. Use `/pipeline --skip-review` when you want design + implementation without the review loop.
-- **Design concerns from developers.** If a developer flags a concern during implementation that contradicts the brainstorm's design, take it seriously — they have more concrete context than the brainstorm agents did. Note it in the final summary and let the user decide whether to address it.
-- **Checkpoints.** Checkpoints do NOT contain finding evidence (file:line quotes), code snippets, full deliberation transcripts, or security-sensitive content — only structural decisions and artifact paths. The `--resume` flag reads the most recent checkpoint in `.pipeline/` and picks up from the last completed phase, but always re-confirms approval gates rather than trusting the checkpoint's record of prior approvals.
+- **The design brief persists.** The extracted design brief is written to `.pipeline/design-brief.md` during Phase 2. This makes the brief deterministic on resume, reviewable, and editable. If you want to adjust what developers see, edit this file before resuming.
+- **Incremental use.** You don't have to run the full pipeline. Use `/brainstorm` alone for design decisions. Use `/review-fix` alone for existing code. Use `/pipeline --skip-brainstorm` when you already know what to build (your arguments become the design brief directly). Use `/pipeline --skip-review` when you want design + implementation without the review loop.
+- **Design concerns from developers.** If a developer flags a concern during implementation that contradicts the brainstorm's design, the pipeline surfaces it as a gate before review. This is the mechanism for implementation-time discovery to influence the pipeline — the only point where information flows backward.
+- **No design feedback loop.** The pipeline is strictly linear — review cannot trigger re-brainstorm. If review reveals a design-level issue, stop the pipeline and re-run `/brainstorm` with the new information. This is a deliberate simplicity trade-off.
+- **Checkpoints.** Checkpoints do NOT contain finding evidence (file:line quotes), code snippets, full deliberation transcripts, or security-sensitive content — only structural decisions and artifact paths. The `--resume` flag reads the most recent checkpoint in `.pipeline/` and picks up from the last completed phase, re-confirming approval gates unless `--auto` is also set.
