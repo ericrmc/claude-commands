@@ -23,7 +23,7 @@ For individual phases, use `/brainstorm` or `/review-fix` directly.
    - `--skip-brainstorm` — skip Phase 1 and Phase 2. Your arguments become the design brief directly — be specific about what to build and how. Phase 3 uses the arguments as the design description, with no brainstorm-derived risks, rejected approaches, or dissenting views available.
    - `--from-brainstorm PATH` — skip Phase 1, use an existing brainstorm output file. PATH is the brainstorm output markdown file (e.g., `brainstorm-output.md`). The pipeline reads this file and enters Phase 2 (design approval) directly. All brainstorm-derived context (risks, rejected approaches, dissenting views) is extracted from the file as normal. Transcript files (`brainstorm-rN-transcript.md`) are used during final synthesis if they exist alongside the output file, but are not required.
    - `--skip-review` — stop after implementation, don't review
-   - `--resume` — resume from the most recent checkpoint in `.pipeline/`. Read the most recent checkpoint (by filename timestamp; if multiple checkpoints share the same timestamp prefix, use the one with the highest `phase_completed` value — later phases take precedence; if still ambiguous, ask the user which checkpoint to resume from). Phase ordering for comparison: `brainstorm` < `design_approved` < `implementation` < `fix_iteration_1` < `fix_iteration_2` < ... < `review_complete`. Extract: (1) `phase_completed` — determines where to resume from; (2) `approved_design` — re-present this to the user and re-confirm before proceeding; (3) `design_brief_path` — read `.pipeline/design-brief.md` to restore the design brief deterministically; (4) `brainstorm_output_path` — for reference; (5) `files_created`/`files_modified` — use these as the Phase 4 review target if resuming after implementation. If a required field is missing from the checkpoint, ask the user to supply it. Re-confirms all outstanding approval gates before continuing — does not trust checkpoint's record of prior approvals. **Exception:** if `--auto` is also set, skip re-confirmation and proceed automatically. `--auto` takes precedence over `--resume`'s re-confirmation requirement.
+   - `--resume` — resume from the most recent checkpoint in `.pipeline/`. Read the most recent checkpoint (by filename timestamp; if multiple checkpoints share the same timestamp prefix, use the one with the highest `phase_completed` value — later phases take precedence; if still ambiguous, ask the user which checkpoint to resume from). Phase ordering for comparison: `brainstorm` < `design_approved` < `implementation` < `fix_iteration_1` < `fix_iteration_2` < ... < `review`. Extract: (1) `phase_completed` — determines where to resume from; (2) `approved_design` — re-present this to the user and re-confirm before proceeding; (3) `design_brief_path` — read `.pipeline/design-brief.md` to restore the design brief deterministically; (4) `brainstorm_output_path` — for reference; (5) `files_created`/`files_modified` — use these as the Phase 4 review target if resuming after implementation. If a required field is missing from the checkpoint, ask the user to supply it. Re-confirms all outstanding approval gates before continuing — does not trust checkpoint's record of prior approvals. **Exception:** if `--auto` is also set, skip re-confirmation and proceed automatically. `--auto` takes precedence over `--resume`'s re-confirmation requirement.
 
 Before writing the first checkpoint, ensure the `.pipeline/` directory exists. Create it if it does not.
 
@@ -42,7 +42,7 @@ Unless `--skip-brainstorm` or `--from-brainstorm` was specified:
 
 Print: `[Pipeline] Starting Phase 1: Brainstorm. Running {n} rounds with {agents} agents per round.`
 
-Read `~/.claude/commands/brainstorm.md` and follow its full protocol, using the task as the problem statement. Pass through `--rounds`, `--keep`, and `--agents` flags.
+Follow the `/brainstorm` protocol, using the task as the problem statement. Pass through `--rounds`, `--keep`, and `--agents` flags.
 
 This produces a brainstorm output markdown file with ranked recommendations, plus per-round working files (`brainstorm-rN-results.md` and `brainstorm-rN-transcript.md`).
 
@@ -267,7 +267,7 @@ Compile a list of all files created or modified and all tests added. This become
 
 Unless `--skip-review` was specified:
 
-Read `~/.claude/commands/review-fix.md` and follow its full protocol. Target the files changed during Phase 3 (including any files touched by the integration developer). Pass `--max-iterations {max-review-iterations}`. If `--auto` is set, also pass `--auto`.
+Follow the `/review-fix` protocol. Target the files changed during Phase 3 (including any files touched by the integration developer). Pass `--max-iterations {max-review-iterations}`. If `--auto` is set, also pass `--auto`.
 
 The review-fix loop will:
 1. Review the implementation with 3 independent reviewers
