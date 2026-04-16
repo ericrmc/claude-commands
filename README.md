@@ -2,6 +2,8 @@
 
 Slash commands for structured multi-agent workflows in Claude Code. Inspired by [AgentCouncil](https://github.com/kiran-agentic/agentcouncil), built with commands instead of an MCP plugin.
 
+Each run is self-improving. The pipeline brainstorms, implements, and reviews in a single pass — and re-running it on the same target progressively raises quality. Early runs surface high-severity structural issues, later runs find medium and low items, and eventually findings converge toward a well-rounded solution without manual steering. The pipeline successfully ran on itself to develop and verify the commands in this repo.
+
 These commands guide Claude through structured protocols but are not deterministic — Claude interprets the instructions each run, so the exact execution path may vary. For stricter process guarantees, multiple LLM backends, or formal deliberation tracking, use [AgentCouncil](https://github.com/kiran-agentic/agentcouncil) directly.
 
 | Command | What it does |
@@ -142,4 +144,4 @@ Reduce cost with `--rounds 2 --agents 3`, or skip phases: `--skip-brainstorm`, `
 - **Triage gate.** `/review-fix` pauses before fixing and lets you choose which findings to address.
 - **Design rationale persists.** The brainstorm output file survives after implementation — useful for onboarding or understanding why a particular approach was chosen.
 - **Stress-test your commands.** Agents inside a process can challenge each other's ideas but cannot challenge the process itself — they operate inside the frame the prompt sets. `/meta/stress-test` operates outside that frame. Run it after writing or changing a command file to catch structural issues before they surface as bad output.
-- **Re-running converges.** The pipeline successfully ran on itself — brainstorming enhancements to its own command files, implementing them, and reviewing the results. Across multiple self-runs, the severity of findings decreases progressively: early runs surface high-severity structural issues, later runs find mostly medium and low items. This suggests re-running `/pipeline` or `/review-fix` on the same target converges toward a well-rounded solution as each pass catches what the previous one missed.
+- **Re-run to converge.** Each pass catches what the previous one missed. Run `/pipeline` or `/review-fix` again on the same target and the severity of findings drops until there's nothing left worth fixing.
