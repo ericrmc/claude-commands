@@ -26,8 +26,9 @@ Repeat the following sequence for each round. Agent count tapers: Round 1 uses `
 
 Pick `{agent count}` roles from the role pool (Appendix A). Rules:
 - Never repeat a role from the previous round.
-- Each round MUST have at least one expansive role (creative inventor, systems architect, domain specialist) AND one constraining role (minimalist, security hardener, devil's advocate, day-1 shipper).
+- Each round MUST have at least one expansive role (creative inventor, systems architect, domain specialist, first principles thinker) AND one constraining role (minimalist, security hardener, devil's advocate, assumption challenger, day-1 shipper).
 - Round 1: maximise divergence. Final round: stress-test for production readiness.
+- **For non-code problems** (architecture decisions, product direction, process design) or when the problem statement came from a user request: include assumption challenger or first principles thinker in Round 1. User requests encode assumptions about the solution — these roles challenge whether the problem is correctly framed before solution-space roles optimize within that frame. They pair well together: the assumption challenger clears false premises, the first principles thinker rebuilds from actual needs.
 - Synthesise new roles when the problem demands it. They are first-class.
 - Tell the user which roles you picked and why.
 
@@ -142,6 +143,8 @@ Show:
 | **Systems architect** | Integration points, scalability, emergent behaviour, component boundaries, data flow |
 | **Minimalist** | What to remove, YAGNI, smallest viable version, complexity budget, "do we even need this" |
 | **Domain specialist** | Industry patterns, prior art, how others have solved this, standards and conventions |
+| **Assumption challenger** | What are we taking as given that might be wrong? False premises in the problem statement, historical accidents mistaken for requirements, solutions looking for problems |
+| **First principles thinker** | Strip away the existing implementation. What does the user actually need to accomplish? Rebuild from the ground up, ignoring what exists today |
 | **Devil's advocate** | Hidden assumptions, failure cascades, second-order effects, "yes but what about..." |
 | **Ops engineer** | Deployment, monitoring, maintenance burden, incident response, observability, toil |
 | **Performance engineer** | Efficiency, bottlenecks, resource constraints, scaling limits, cost at volume |
