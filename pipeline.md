@@ -52,7 +52,7 @@ When the brainstorm is complete:
 
 1. Print: `[Pipeline] Phase 1 complete. Brainstorm output: {path}. Presenting recommendations.`
 2. Write a checkpoint to `.pipeline/checkpoint-{YYYYMMDD-HHmmss}.md` with: `phase_completed: brainstorm`, `brainstorm_output_path: {path}`, `timestamp: {ISO timestamp}`, `pipeline_version: 1.0`.
-3. Before proceeding to Phase 2, confirm silently: (1) All round-lead agents have completed and written their handoff files? (2) Final output file written to disk? (3) Top recommendations extracted? If any check fails, resolve before presenting to user.
+3. Before proceeding to Phase 2, confirm silently: (1) Final output file written to disk? (2) Top recommendations extracted? If any check fails, resolve before presenting to user.
 
 Proceed to Phase 2.
 
@@ -247,6 +247,8 @@ If `--auto`, proceed with option 1 but include the concerns prominently in the f
 
 If no developers flagged concerns, skip this gate.
 
+Print: `[Status] phase=implementation files_created={n} files_modified={n} developer_concerns={count_or_none}`
+
 Print: `[Pipeline] Implementation complete. {n} files changed. Starting review.`
 
 Write a checkpoint to `.pipeline/checkpoint-{YYYYMMDD-HHmmss}.md` with: `phase_completed: implementation`, `files_created: {list}`, `files_modified: {list}`, `integration_files_touched: {list, if integration developer ran}`, `developer_concerns: {any concerns flagged}`, `timestamp: {ISO timestamp}`, `pipeline_version: 1.0`.
@@ -315,7 +317,7 @@ Remaining: {count, with IDs and brief reasons}
 
 ## Notes
 
-- **Token cost.** This is the most resource-intensive workflow. Brainstorm (default: ~13 context windows — 3 round-leads + ~10 agents with tapering) + Implementation (up to 4) + Review-fix (up to 8 per iteration × 3 iterations). For a full default run: ~40 context windows. Round isolation in the brainstorm phase prevents cross-round context accumulation. Use `--rounds 2 --agents 3` for smaller problems, or `--skip-brainstorm` if the design is already decided.
+- **Token cost.** This is the most resource-intensive workflow. Brainstorm (default: ~10 agent context windows with tapering) + Implementation (up to 4) + Review-fix (up to 8 per iteration × 3 iterations). For a full default run: ~35 context windows. Each agent receives ~4k tokens of protocol overhead. A full default pipeline consumes ~150-200k input tokens on protocol alone. Use `--rounds 2 --agents 3` for smaller problems, or `--skip-brainstorm` if the design is already decided.
 - **Approval gates are load-bearing.** The brainstorm → implementation gate prevents building the wrong thing. The triage gate in review-fix prevents fixing non-issues. Unless `--auto` is set, always pause for user input at these points. `--auto` takes precedence over `--resume`'s re-confirmation — when both are set, resume proceeds without pausing.
 - **The brainstorm document persists.** Even after implementation and review, the design rationale lives in the output file. This is valuable for onboarding, future changes, or understanding why a particular approach was chosen over alternatives.
 - **The design brief persists.** The extracted design brief is written to `.pipeline/design-brief.md` during Phase 2. This makes the brief deterministic on resume, reviewable, and editable. If you want to adjust what developers see, edit this file before resuming.

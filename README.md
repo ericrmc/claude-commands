@@ -125,14 +125,14 @@ Agent Teams is an experimental Claude Code feature that lets a lead agent spawn,
 
 ## Cost
 
-These workflows are token-intensive by design — the value is in the diversity of perspectives. Each agent gets its own context window (one full agent conversation).
+These workflows are token-intensive by design — the value is in the diversity of perspectives. Each agent gets its own context window (one full agent conversation), plus ~4k tokens of protocol overhead per spawn.
 
-| Command | Agent conversations (default settings) |
-|---------|-------------|
-| `/brainstorm` | ~13 (3 round leads + ~10 agents across rounds) |
-| `/review-fix` | ~8 per iteration (3 reviewers + up to 4 developers + 2 verifiers) |
-| `/pipeline` | ~40 for a full run (brainstorm + implementation + review) |
-| `/meta/stress-test` | 1 (single agent, no teams) |
+| Command | Agent conversations (default settings) | Protocol overhead |
+|---------|-------------|-------------|
+| `/brainstorm` | ~10 (4/3/3 agents across 3 rounds) | ~50-60k input tokens |
+| `/review-fix` | ~8 per iteration (3 reviewers + up to 4 developers + 2 verifiers) | ~25-30k input tokens |
+| `/pipeline` | ~35 for a full run (brainstorm + implementation + review) | ~150-200k input tokens |
+| `/meta/stress-test` | 1 (single agent, no teams) | ~2k input tokens |
 
 Reduce cost with `--rounds 2 --agents 3`, skip phases (`--skip-brainstorm`, `--skip-review`), or resume from a previous brainstorm (`--from-brainstorm`).
 
@@ -146,6 +146,8 @@ Reduce cost with `--rounds 2 --agents 3`, skip phases (`--skip-brainstorm`, `--s
 - **Design rationale persists.** The brainstorm output file survives after implementation — useful for onboarding or understanding why a particular approach was chosen.
 - **Stress-test your commands.** Agents inside a process can challenge each other's ideas but cannot challenge the process itself — they operate inside the frame the prompt sets. `/meta/stress-test` operates outside that frame. Run it after writing or changing a command file to catch structural issues before they surface as bad output.
 - **Re-run to converge.** Each pass catches what the previous one missed. Run `/pipeline` or `/review-fix` again on the same target and the severity of findings drops until there's nothing left worth fixing.
+- **Early stopping.** If brainstorm rounds converge early (same ideas, no new dissent), remaining rounds are skipped automatically to save tokens.
+- **Observability.** Each phase prints a `[Status]` line with agent response counts and context estimates. Use these to tune parameters and diagnose quality issues.
 
 ---
 

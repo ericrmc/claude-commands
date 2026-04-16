@@ -73,34 +73,18 @@ For example, with the default of 4: Round 1 uses 4, Rounds 2+ use 3. With `--age
 
 ---
 
-## Round Isolation
+## Round Structure
 
-Each round runs as a **separate lead agent** within a team created by the main orchestrator. This prevents cross-round context accumulation — each round-lead's context contains only its own round's messages.
-
-### Orchestration flow
-
-The main orchestrator handles all team lifecycle management (create, spawn, delete) because team tools (`TeamCreate`, `TeamDelete`) are only available in the main orchestrator's environment — subagents cannot access them. Round-leads orchestrate their teams via `SendMessage`, which IS available to team members.
-
-```
-Main orchestrator (per round):
-  1. TeamCreate brainstorm-r{n}
-  2. Spawn {agents} brainstorm agents into team (Agent with team_name="brainstorm-r{n}")
-  3. Spawn round-lead into team (Agent with team_name="brainstorm-r{n}", name="r{n}-lead")
-     → lead orchestrates via SendMessage → writes brainstorm-r{n}-results.md + brainstorm-r{n}-transcript.md
-  4. After lead completes: TeamDelete brainstorm-r{n}
-  5. Read results file, present summary to user, proceed to next round
-```
-
-The file-based handoff (`brainstorm-r{n}-results.md`) is the only communication channel between rounds. The main orchestrator passes previous round results to the next round-lead via its spawn prompt.
+Each round is orchestrated directly by the main orchestrator. The orchestrator creates a team, spawns agents, broadcasts instructions, collects responses, tallies votes, writes handoff files, and cleans up the team.
 
 ### Two-file handoff per round
 
-Each round-lead writes two files:
+Each round produces two files:
 
-1. **`brainstorm-rN-results.md`** (compact, structured) — what the next round-lead reads as input. ~1-2k tokens.
+1. **`brainstorm-rN-results.md`** (compact, structured) — what the next round reads as input. ~1-2k tokens.
 2. **`brainstorm-rN-transcript.md`** (detailed, append-only) — full agent ideas, challenges, and votes. Reference archive for final synthesis.
 
-**Required fields for downstream consumption.** Every results file MUST include all of the following. If any are missing, the next round-lead cannot reliably consume the handoff:
+**Required fields for downstream consumption.** Every results file MUST include all of the following. If any are missing, the next round cannot reliably consume the handoff:
 
 - **Surviving idea IDs and titles** — each surviving idea must have a unique `[S{n}]` tag and a title.
 - **One-line descriptions** — every surviving idea needs a description, not just a title.
@@ -144,47 +128,51 @@ The `## Role Selection Notes for Next Round` section is optional but recommended
 [Full text of challenges and votes as posted]
 
 ## Lead Notes
-[Any observations the round-lead made during orchestration — non-responsive agents,
+[Any observations the orchestrator made during the round — non-responsive agents,
  consensus patterns, merge proposals that emerged organically]
 ```
 
+### Orchestration flow
+
+```
+Main orchestrator (per round):
+  1. TeamCreate brainstorm-r{n}
+  2. Spawn {agents} brainstorm agents into team (Agent with team_name="brainstorm-r{n}")
+  3. Broadcast ideation instructions via SendMessage to="*"
+  4. Wait for all agents to post ideas
+  5. Compliance check on [I{n}] tags
+  6. Broadcast challenge-and-vote instructions via SendMessage to="*"
+  7. Wait for all agents to post challenges and votes
+  8. Compliance check on STRONG/WEAK/MODIFY/MERGE labels
+  9. Send shutdown requests to all agents
+  10. Tally votes, determine survivors, write brainstorm-r{n}-results.md + brainstorm-r{n}-transcript.md
+  11. Self-check: verify results file contains all required fields before proceeding
+  12. TeamDelete brainstorm-r{n}
+  13. Print between-rounds summary, proceed to next round
+```
+
+The file-based handoff (`brainstorm-r{n}-results.md`) is the only communication channel between rounds. The main orchestrator passes previous round results to the next round's agents via their spawn prompts.
+
 ---
 
-## Round Structure
+## Running a Round
 
-Each round has two actors: the **main orchestrator** (creates/deletes the team, spawns agents) and the **round-lead** (a team member that orchestrates via `SendMessage`).
-
-### Main orchestrator: set up the round
+### Set up
 
 Before each round, the main orchestrator:
 
 1. Selects roles for this round (see Role Selection Rules above).
 2. Emits a status line: `[Round {n}/{total}] Spawning {agent count} agents: {role list}`
 3. Creates the team: `TeamCreate` with `team_name: "brainstorm-r{n}"`.
-4. Spawns each brainstorm agent into the team using the Agent tool with `team_name: "brainstorm-r{n}"` and a descriptive `name` (e.g., `"creative-inventor"`, `"minimalist"`). Use the agent spawn prompt template below.
-5. Spawns the round-lead into the team: Agent tool with `team_name: "brainstorm-r{n}"`, `name: "r{n}-lead"`, and the round-lead prompt (see below).
+4. Spawns each brainstorm agent into the team using the Agent tool with `team_name: "brainstorm-r{n}"` and a descriptive `name` (e.g., `"creative-inventor"`, `"minimalist"`). Use the agent spawn prompt template below. Spawn agents with `run_in_background: true`.
 
 **Do not summarise or analyse the codebase before spawning agents.** The problem statement and any surviving ideas from previous rounds are sufficient context. Reading and summarising the codebase dilutes the prompt with potentially inaccurate information and wastes context window. If agents need to understand specific code to brainstorm effectively, they can read it themselves.
 
-### Main orchestrator: tear down the round
+### Phase A: DIVERGE
 
-After the round-lead completes (its Agent invocation returns):
+After all agents are spawned, broadcast to all agents (`SendMessage` with `to: "*"`) to begin ideation:
 
-1. Call `TeamDelete` to clean up the team.
-2. Read `brainstorm-r{n}-results.md` and present the between-rounds summary to the user.
-3. Proceed to the next round (or final synthesis if this was the last round).
-
-### Round-lead prompt
-
-The round-lead is spawned as a team member. It does NOT create or delete teams — it orchestrates the brainstorm agents that are already in the team via `SendMessage`. Include the following in the round-lead's spawn prompt:
-
-> You are the lead for Round {n} of a brainstorm. Your team has {agent count} brainstorm agents already spawned and waiting. Orchestrate them through the phases below using SendMessage, then write the handoff files and send shutdown requests to all agents.
->
-> {Include the problem statement, round context (surviving ideas from previous rounds if applicable), and the full Phase A/B/Convergence instructions below.}
-
-### Phase A: DIVERGE (round-lead instructions)
-
-The brainstorm agents have already been spawned by the main orchestrator. Broadcast to all agents (`SendMessage` with `to: "*"`) to begin ideation.
+*"Begin ideation. Think independently about the problem through your specific lens, then post your ideas in a single message to all teammates using the [I{n}] format. Do NOT read other agents' messages until you've posted your own ideas."*
 
 #### Agent spawn prompt template
 
@@ -231,17 +219,17 @@ The main orchestrator uses this template when spawning each brainstorm agent. Re
 >
 > **Step 3 — Stop.** Your task for this phase is complete. Do NOT read or respond to other agents' messages. You will receive a new message from the lead when the challenge-and-vote phase begins.
 
-If any agent has not posted after the others have all completed, proceed with the agents that did respond and note the non-response.
+Wait for all agents to post their ideas. If any agent has not posted after the others have all completed, proceed with the agents that did respond and note the non-response.
 
 #### Compliance check
 
-Before moving to Phase B, scan each agent's post for `[I{n}]` tags. If any agent's post is missing the required format markers, send a one-shot correction: *"Your response is missing the required [I{n}] format markers. Please repost your ideas using the format specified in your instructions."* Proceed after one correction attempt regardless — do not loop. If an agent cannot repost (idle or unresponsive), note the non-compliance in the lead notes and proceed with available formatted posts.
+Before moving to Phase B, scan each agent's post for `[I{n}]` tags. If any agent's post is missing the required format markers, send a one-shot correction: *"Your response is missing the required [I{n}] format markers. Please repost your ideas using the format specified in your instructions."* Proceed after one correction attempt regardless — do not loop. If an agent cannot repost (idle or unresponsive), note the non-compliance and proceed with available formatted posts.
 
 ### Phase B: CHALLENGE & VOTE (combined)
 
 Once all agents have posted their ideas, emit a status line: `[Round {n}] All {agent count} agents posted ideas. Starting challenge-and-vote phase.`
 
-Then broadcast:
+Then broadcast (`SendMessage` with `to: "*"`):
 
 > *"All ideas are posted. Read every idea from every agent. In a SINGLE message, do both:*
 >
@@ -264,32 +252,40 @@ If agents start posting follow-ups, broadcast: *"Finalise your positions — we'
 
 #### Compliance check
 
-Before moving to convergence, scan each agent's challenge-and-vote post for STRONG/WEAK/MODIFY/MERGE labels. Also check for VOTE lines — but note that an agent may legitimately post only challenge labels with no votes if they find no ideas worth supporting. Only flag as non-compliant if challenge labels are missing. If challenge labels are present but VOTE lines are absent, accept the post as-is. If challenge labels are missing, send a one-shot correction: *"Your response is missing the required challenge labels (STRONG/WEAK/MODIFY/MERGE). Please repost using the format specified in your instructions."* Proceed after one correction attempt regardless — do not loop. If an agent's challenge-and-vote post remains unformatted after correction, the lead must manually extract any discernible votes or challenge assessments from the unformatted text and include them in the convergence tally. Note the extraction in the lead notes.
+Before moving to convergence, scan each agent's challenge-and-vote post for STRONG/WEAK/MODIFY/MERGE labels. Also check for VOTE lines — but note that an agent may legitimately post only challenge labels with no votes if they find no ideas worth supporting. Only flag as non-compliant if challenge labels are missing. If challenge labels are missing, send a one-shot correction: *"Your response is missing the required challenge labels (STRONG/WEAK/MODIFY/MERGE). Please repost using the format specified in your instructions."* Proceed after one correction attempt regardless — do not loop. If an agent's challenge-and-vote post remains unformatted after correction, manually extract any discernible votes or challenge assessments from the unformatted text and include them in the convergence tally. Note the extraction in the lead notes.
 
 ### Convergence
 
 After all agents post their combined challenge-and-vote messages (if any agent has not posted after the others have all completed, proceed with available responses and note the non-response):
 
-1. **Shut down all brainstorm agents.** Send a shutdown request to each agent via `SendMessage` with `message: {type: "shutdown_request"}`. Do NOT call `TeamDelete` — the main orchestrator handles that after this round-lead completes.
+1. **Shut down all brainstorm agents.** Send a shutdown request to each agent via `SendMessage` with `message: {type: "shutdown_request"}`.
 2. **Count support.** For each idea, tally how many agents voted for it.
 3. **Survival threshold: majority support (external votes only).** Self-votes are not permitted. If an agent proposed a MERGE [Ia]+[Ib], they may not vote for either constituent idea, but may vote for other merged combinations they did not propose. When agents ≥ 3, the majority threshold is ≥2 external votes. When only 2 agents are in a round, the threshold is ≥1 external vote. An idea survives if it meets this threshold.
 4. **Apply a soft cap of 10.** If more than 10 ideas clear the threshold, keep only the top 10 by vote count. Break ties by preferring ideas that survived challenges without needing modification.
-5. **Lead curation.** Review ideas that fell below threshold. If an idea was cut primarily by role-structural opposition (e.g., a minimalist opposing on complexity grounds without citing a concrete failure mode) rather than evidence-based challenge, the lead may rescue it. This is a light touch — only intervene when the opposition lacked specific evidence. Mark rescued ideas as `[lead-rescued]` with a one-line reason. Do not rescue more than 2 ideas per round.
+5. **Lead curation.** Review ideas that fell below threshold. If an idea was cut primarily by role-structural opposition (e.g., a minimalist opposing on complexity grounds without citing a concrete failure mode) rather than evidence-based challenge, the orchestrator may rescue it. This is a light touch — only intervene when the opposition lacked specific evidence. Mark rescued ideas as `[lead-rescued]` with a one-line reason. Do not rescue more than 2 ideas per round.
 6. **Record cuts.** For each cut idea, record the vote count and the strongest objection against it.
 
 The natural trajectory with these rules: Round 1 typically produces 6-9 survivors from 12-20 proposals. Round 2's harder roles cut further to 4-6. The final round should yield 3-5 strong recommendations. If you end with more than 8 after the final round, the convergence was too loose — trim by applying stricter majority (e.g., require 3 out of 4 votes) and re-cut.
 
 ### Write handoff files
 
-Write the two handoff files (`brainstorm-r{n}-results.md` and `brainstorm-r{n}-transcript.md`) using the formats defined above.
+Write both handoff files (`brainstorm-r{n}-results.md` and `brainstorm-r{n}-transcript.md`) using the formats defined above.
 
-Emit a status line: `[Round {n}] Convergence complete. {survived} ideas survive, {cut} cut. {next action}.`
+**Self-check:** Before proceeding, verify the results file contains all required fields: surviving idea IDs with titles, vote counts (X/Y format), unresolved dissent section, cut ideas with reasons. If any are missing, fix them now.
+
+Emit a status line: `[Status] round={n} agents_responded={n/m} ideas_proposed={count} ideas_surviving={count} ideas_cut={count}`
+
+Followed by: `[Round {n}] Convergence complete. {survived} ideas survive, {cut} cut. {next action}.`
 
 Where `{next action}` is either "Starting Round {n+1}." or "Moving to final output." for the last round.
 
-### Between rounds (main orchestrator)
+### Tear down
 
-After the round-lead agent completes (its Agent invocation returns), call `TeamDelete` to clean up `brainstorm-r{n}`, then read `brainstorm-r{n}-results.md` and present to the user:
+After writing handoff files, call `TeamDelete` to clean up `brainstorm-r{n}`.
+
+### Between rounds
+
+After team cleanup, read `brainstorm-r{n}-results.md` and present to the user:
 
 ```
 ## Round {n} Complete
@@ -305,9 +301,13 @@ Next round roles: {selected roles and one-line reason for each selection}
 Full transcript: brainstorm-r{n}-transcript.md
 ```
 
+#### Early stopping check
+
+If the surviving idea set is unchanged from the previous round (same ideas, no new dissent, no new modifications), skip remaining rounds and proceed to final synthesis. Note the early stop: `[Status] early_stop=true reason=converged round={n} remaining_rounds_skipped={count}`
+
 ### Idle notification handling
 
-The round-lead should treat the **first idle notification** from an agent after a substantive message as "this agent is done." Ignore subsequent idle notifications from the same agent until you send them a new message. Do not respond to or acknowledge repeated idle notifications — they carry zero additional information.
+Treat the **first idle notification** from an agent after a substantive message as "this agent is done." Ignore subsequent idle notifications from the same agent until you send them a new message. Do not respond to or acknowledge repeated idle notifications — they carry zero additional information.
 
 ---
 
@@ -407,6 +407,7 @@ Show:
 - **Diversity is the mechanism.** If you pick 4 similar roles, the brainstorm collapses into groupthink. The value comes from genuinely different perspectives colliding. Review your role selections critically.
 - **History carries forward.** Later rounds MUST see what survived and what was challenged. The results file handoff carries this between rounds — agents don't need the full transcript, just the compact surviving-idea list.
 - **Idea count trajectory.** Round 1 with 4 agents × 3-5 ideas = 12-20 raw ideas. Converging to 8 cuts ~50-60%. By the final round you should have 3-5 strong, well-tested recommendations. If you end with more than 8, your convergence is too loose. If you end with fewer than 3, it's too aggressive.
-- **Token cost.** Default (3 rounds, 4/3/3 agents) = ~10 agent context windows + 3 round-lead windows. Round isolation prevents cross-round context accumulation — each round-lead's context is bounded by its own round. For simpler problems, use `--rounds 2 --agents 3`.
+- **Token economics.** Default (3 rounds, 4/3/3 agents) = ~10 agent context windows. Each agent receives ~4k tokens of protocol and context before doing any reasoning. A full default brainstorm consumes ~50-60k input tokens on protocol overhead alone. For cost-sensitive use, `--rounds 2 --agents 3` cuts this roughly in half.
 - **Intermediate files.** Each round produces `brainstorm-rN-results.md` and `brainstorm-rN-transcript.md`. These are working files consumed during synthesis and can be cleaned up after the final output is written. The transcript files preserve the detailed reasoning chains that make the final output high-quality.
 - **Not just for code.** This skill works for architecture decisions, product direction, process design, or any problem that benefits from structured multi-perspective analysis. The output file serves as a design rationale document regardless of whether implementation follows.
+- **Non-compliance is accepted degraded behavior.** If an agent fails to comply with the required format after one correction, the round proceeds with reduced diversity. The orchestrator extracts what it can from non-compliant output and notes the degradation in lead notes. The `[Status]` line shows `agents_responded=N/M` to make this visible. This is an inherent limitation of prompt-only orchestration, not a bug.

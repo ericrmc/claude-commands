@@ -111,6 +111,8 @@ Present as a summary table:
 | ID | Title | Severity | Agreed | Impact | Location |
 |----|-------|----------|--------|--------|----------|
 
+Print: `[Status] phase=review_synthesis findings={n} critical={n} high={n} medium={n} low={n}`
+
 Print: `[Review] Synthesis complete. {n} findings ({critical} critical, {high} high, {medium} medium, {low} low).`
 
 **Required fields for triage:** Each finding passed to Phase 2 must have: ID *(mandatory)*, title *(mandatory)*, severity *(mandatory)*, impact *(mandatory)*, location *(mandatory)*, agreed count. Findings missing mandatory fields should be fixed during synthesis before proceeding.
@@ -158,6 +160,8 @@ Group the approved findings so that findings affecting the same files go to the 
 Before spawning fix developers, confirm silently: (1) User has approved which findings to fix (or `--auto` is set)? (2) Findings grouped by file ownership with no two developers sharing files (including test files)? If any check fails, resolve before spawning. **Do not print anything if all checks pass.**
 
 ### Spawn the developer team
+
+Print: `[Status] phase=fix iteration={n} developers={m} findings={k}`
 
 Print: `[Fix] Iteration {n}: Spawning {m} developers for {k} findings.`
 
@@ -261,7 +265,11 @@ Create a new agent team with **2 verifier teammates**.
 
 ### Collect verification results
 
-Wait for both verifiers to complete. Print: `[Verify] Iteration {n}: {verified} verified, {not_fixed} not fixed, {regressed} regressed.`
+Wait for both verifiers to complete.
+
+Print: `[Status] phase=verify iteration={n} verified={n} not_fixed={n} regressed={n}`
+
+Print: `[Verify] Iteration {n}: {verified} verified, {not_fixed} not fixed, {regressed} regressed.`
 
 Synthesise:
 - **VERIFIED** → done, remove from active list
@@ -332,3 +340,5 @@ If any findings were escalated, present them in a separate section with the deve
 - **Escalation.** Developers may escalate findings that require architectural changes beyond their scope. Escalated findings exit the fix loop and are presented to the user separately. This prevents narrow patches that mask deeper issues.
 - **Teammate discipline.** The structured finding format and independence protocol rely on prompt compliance. If a reviewer posts vague findings or doesn't follow the format, message them with a reminder before proceeding.
 - **Scope creep.** Developers are told to fix only assigned findings. If they message about other issues they noticed, acknowledge them but do not expand scope mid-iteration. Note them for a future run.
+- **Non-compliance is accepted degraded behavior.** If a reviewer or developer fails to comply with the required format after one correction, the phase proceeds with reduced coverage. The orchestrator extracts what it can from non-compliant output and notes the degradation. The `[Status]` line shows agent response counts to make this visible. This is an inherent limitation of prompt-only orchestration, not a bug.
+- **Token economics.** Each phase spawns a new team. Reviewers each receive ~3k tokens of protocol. A full iteration (3 reviewers + up to 4 developers + 2 verifiers) consumes ~8 context windows. Protocol overhead is ~25-30k input tokens per iteration. For cost-sensitive use, target smaller files or use `--review-only` to skip fix iterations.
