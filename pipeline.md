@@ -22,6 +22,20 @@ For individual phases, use `/brainstorm` or `/review-fix` directly.
    - `--from-brainstorm PATH` — skip Phase 1, use existing brainstorm output file. Enters Phase 2 directly.
    - `--skip-review` — stop after implementation
    - `--resume` — resume from most recent checkpoint in `.pipeline/`. See Appendix E for resume logic.
+   - `--quick` — expands to `--rounds 2 --agents 3 --max-review-iterations 2`. Print expanded values. Explicit flags override `--quick` values.
+   - `--dry-run` — print the full execution plan (phases, agent counts, estimated context windows, estimated tokens) and stop. No agents spawned.
+4. Expand presets: if `--quick` is set, expand and print expanded values. Explicit flags override.
+5. Validate parameters: `--rounds` ≥ 1, `--agents` ≥ 2, `--max-review-iterations` ≥ 0. Conflicts: `--skip-brainstorm` + `--from-brainstorm` (contradictory — print error, stop), `--resume` + `--skip-brainstorm` (ambiguous — print error, stop), `--skip-review` + `--max-review-iterations` (contradictory if iterations > 0 — print error, stop). If invalid, print the constraint and a usage example, then stop.
+6. If `--dry-run` is set, print the execution plan and stop:
+   > **Dry-run plan:**
+   > Phase 1 (Brainstorm): {rounds} rounds, {agents} agents/round, ~{context windows}cw
+   > Phase 2 (Approve): 1 approval gate
+   > Phase 3 (Implement): up to 4 developers + conditional integration
+   > Phase 4 (Review-Fix): up to {max-iterations} iterations, ~8cw/iteration
+   > Total estimated context windows: ~{total}, Estimated input tokens: ~{total × 4}k
+   > Flags: {all flags in effect after preset expansion}
+   > Skipped phases: {list or "none"}
+   > Run again without --dry-run to execute.
 
 Ensure `.pipeline/` directory exists before writing the first checkpoint.
 
@@ -312,6 +326,8 @@ Extract from checkpoint:
 
 Missing fields → ask user. Re-confirm all approval gates unless `--auto` is also set. `--auto` takes precedence over re-confirmation.
 
+**Checkpoint integrity check:** Before resuming, verify the checkpoint contains required fields (`phase_completed` and at least one of `approved_design`, `design_brief_path`, or `brainstorm_output_path`). If any required field is missing, abort with: "Checkpoint at {path} is malformed (missing {field}). Re-run without --resume or fix the checkpoint manually."
+
 ---
 
 ## Notes
@@ -322,3 +338,15 @@ Missing fields → ask user. Re-confirm all approval gates unless `--auto` is al
 - **Design concerns from developers** are surfaced as a gate before review. This is where implementation-time discovery flows backward.
 - **No design feedback loop.** Review cannot trigger re-brainstorm. If review reveals a design issue, stop and re-run `/brainstorm`. Deliberate simplicity trade-off.
 - **Checkpoints** contain only structural metadata — no code, evidence, or transcripts. `--resume` picks up from last completed phase.
+
+---
+
+## Appendix F: When Things Go Wrong
+
+| Failure | Detection | Recovery | Degraded behavior |
+|---------|-----------|----------|-------------------|
+| Brainstorm produces zero recommendations | No ideas survive final convergence | Report to user; offer to re-run with different parameters or describe a design manually | Cannot proceed to implementation without a design |
+| Developer non-response | Other developers complete but one remains idle after nudge | Proceed without; reassign unfinished task to another developer or handle in integration pass | Partial implementation; note missing task in summary |
+| Team creation failure | `TeamCreate` returns an error | Retry once; if still failing, tell user to check Agent Teams config | Cannot proceed — stop and report |
+| Checkpoint corruption on --resume | Required fields missing from checkpoint file | Abort with clear message listing missing fields; suggest re-running without --resume | Cannot resume — full restart required |
+| Developer flags design concern | Developer messages lead with design-level issue | Present to user at developer concern gate (Phase 3 Step 5) | User decides: proceed, pause, or stop |

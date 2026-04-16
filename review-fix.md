@@ -14,21 +14,42 @@ Independent structured review → triage → parallel fix → scoped verificatio
    - `--max-iterations N` — max review→fix loops (default: 3, minimum: 1). If 0 is passed, treat as `--review-only`.
    - `--auto` — skip triage approval, auto-fix all medium+ findings
    - `--review-only` — stop after Phase 1, don't fix anything
+   - `--quick` — expands to `--max-iterations 2`. Print expanded values. Explicit flags override `--quick` values.
+   - `--dry-run` — print the execution plan (reviewer count, estimated iterations, estimated context windows) and stop. No agents spawned.
+4. Expand presets: if `--quick` is set, expand and print expanded values. Explicit flags override.
+5. Validate parameters: `--max-iterations` ≥ 0 (0 treated as `--review-only`). Conflicts: `--review-only` + `--auto` is ambiguous — print error and stop. If invalid, print the constraint and a usage example, then stop.
+6. If `--dry-run` is set, print the execution plan and stop:
+   > **Dry-run plan:**
+   > Reviewers: 3, Max iterations: {n}, Estimated context windows per iteration: ~8, Estimated input tokens: ~{iterations × 30}k
+   > Flags: {all flags in effect}
+   > Run again without --dry-run to execute.
 
 ---
 
 ## Phase 1: REVIEW
 
-### Step 1: Select lenses and spawn reviewers
+### Step 0: Select lenses
 
-Select 3 lenses from Appendix B. Rules:
-- At least one correctness-style lens and one robustness-style lens.
-- Third lens: default to quality, substitute domain-specific when the target has an obvious dominant concern.
-- State selections and reasoning before spawning.
+Select 3 lenses from the lens pool (Appendix B) using the decision table below. State selections and reasoning before spawning.
+
+| Target characteristic | Lens recommendation | Rationale |
+|---|---|---|
+| Default (no strong signal) | correctness, robustness, quality | Baseline coverage for general code |
+| Auth, secrets, or trust boundaries | correctness, robustness, **security** (swap quality) | Security concerns dominate quality concerns |
+| New API surface or public interface | correctness, robustness, **API contract** (swap quality) | Interface stability matters more than internal quality |
+| Data pipeline or ETL | correctness, **idempotency/precision**, robustness | Data correctness and replay safety are primary concerns |
+| Performance-critical path | correctness, robustness, **performance** | Bottleneck code needs efficiency review |
+| Pipeline-invoked with change context | correctness, robustness (keep defaults) | Scoped review; quality lens less relevant when reviewing targeted changes |
+
+If none of the above match, synthesise a domain-specific lens. Synthesised lenses inherit the same protocol and scope constraints as pool lenses.
+
+### Step 1: Spawn reviewers
+
+Using the lenses selected in Step 0:
 
 Print: `[Review] Spawning 3 reviewers ({lens1}, {lens2}, {lens3}).`
 
-Create an agent team. Spawn 3 reviewers using the prompt in Appendix A, each with their lens from Appendix B.
+Create an agent team. Spawn 3 reviewers using the prompt in Appendix A, each with their selected lens.
 
 ### Step 2: Wait for independent findings
 
@@ -291,3 +312,15 @@ Synthesise domain-specific lenses when needed (security reviewer, performance re
 - **File conflicts.** The file declaration step catches conflicts before code is written. If two developers need the same file, reassign before giving the go-ahead.
 - **Escalation.** Developers may escalate findings beyond their scope. Escalated findings exit the fix loop and are presented separately.
 - **Non-compliance is accepted degraded behavior.** If a reviewer or developer fails format compliance after one correction, proceed with reduced coverage. Extract what you can, note the degradation. The `[Status]` line shows agent response counts.
+
+---
+
+## Appendix E: When Things Go Wrong
+
+| Failure | Detection | Recovery | Degraded behavior |
+|---------|-----------|----------|-------------------|
+| Reviewer non-response | Other reviewers complete but one remains idle after nudge | Proceed with 2 reviewers | Reduced lens coverage; note in synthesis |
+| Format non-compliance | Reviewer posts findings without `[F{n}]` markers or severity | Send one correction; if still non-compliant, manually extract findings | Lead synthesises from unstructured output |
+| Team creation failure | `TeamCreate` returns an error | Retry once; if still failing, tell user to check Agent Teams config | Cannot proceed — stop and report |
+| Developer file conflict | Two developers declare overlapping files | Reassign files before giving go-ahead; merge groups if needed | One developer handles both sets of findings |
+| Checkpoint corruption on --resume | Required fields missing from checkpoint file (`phase_completed`, `finding_count`) | Abort resume with clear message; suggest re-running without --resume | Cannot resume — full restart required |

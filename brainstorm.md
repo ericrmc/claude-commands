@@ -15,6 +15,15 @@ Multi-round brainstorming with diverse agent teams. Each round: independent idea
    - `--keep N` — max ideas to carry forward per round (default: 8)
    - `--agents N` — agents per round (default: 4)
    - `--output PATH` — output file path (default: `brainstorm-output.md` in working directory)
+   - `--quick` — expands to `--rounds 2 --agents 3`. Print expanded values. Explicit flags override `--quick` values.
+   - `--dry-run` — print the execution plan (agent count per round, estimated context windows, flags in effect) and stop. No agents spawned.
+4. Expand presets: if `--quick` is set, expand to its defined values. Print: `Expanding --quick to: --rounds 2 --agents 3`. Explicit flags override preset values.
+5. Validate parameters: `--rounds` ≥ 1, `--agents` ≥ 2 (minimum for voting), `--keep` ≥ 1. If invalid, print the constraint and a usage example, then stop.
+6. If `--dry-run` is set, print the execution plan and stop:
+   > **Dry-run plan:**
+   > Rounds: {n}, Agents per round: {agents}/{agents-1}/{agents-1}, Estimated context windows: {total}, Estimated input tokens: ~{agents × rounds × 4k + protocol overhead}k
+   > Flags: {all flags in effect after preset expansion}
+   > Run again without --dry-run to execute.
 
 ---
 
@@ -270,6 +279,7 @@ Synthesise new roles when the problem demands it. Give each a name and one-line 
 > ```
 >
 > 100 words max per idea. Round 1: propose 3-5. Later rounds: new ideas and/or modifications.
+> State your confidence (high/medium/low) for each idea. Flag any claim you haven't verified against the code.
 > Mark your strongest idea with `[LEAD]`.
 >
 > After posting, **stop**. Do NOT read other agents' messages. You will receive a new message when the challenge phase begins.
@@ -392,3 +402,14 @@ Ranked by strength of support across all rounds.
 - **Token economics.** Default (3 rounds, 4/3/3 agents) = ~10 agent context windows. Each agent receives ~4k tokens of protocol and context. Full default brainstorm: ~50-60k input tokens on protocol overhead. Use `--rounds 2 --agents 3` for cost-sensitive runs.
 - **Intermediate files.** Per-round results and transcript files are working files for synthesis. Clean up after final output is written.
 - **Non-compliance is accepted degraded behavior.** If an agent fails format compliance after one correction, proceed with reduced diversity. Extract what you can, note it in lead notes. The `[Status]` line shows `agents_responded=N/M`.
+
+---
+
+## Appendix E: When Things Go Wrong
+
+| Failure | Detection | Recovery | Degraded behavior |
+|---------|-----------|----------|-------------------|
+| Agent non-response | Other agents complete but one remains idle after repeated nudges | Proceed without the non-responsive agent | Round runs with fewer perspectives; note in lead notes |
+| Format non-compliance | Agent posts ideas/votes without required `[I{n}]` or STRONG/WEAK labels | Send one correction message; if still non-compliant, manually extract content | Lead interprets unstructured output; reduced deliberation quality |
+| Team creation failure | `TeamCreate` returns an error | Retry once; if still failing, tell the user to check Agent Teams is enabled | Cannot proceed — stop and report |
+| All agents converge identically | Every agent proposes near-identical ideas or votes unanimously with no dissent | Note the convergence in lead notes; consider whether role selection lacked diversity | Results may reflect model bias rather than genuine multi-perspective analysis |

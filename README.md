@@ -77,17 +77,21 @@ Agents with distinct roles (creative inventor, pragmatic engineer, security hard
 - `--agents N` — agents per round (default: 4)
 - `--keep N` — max ideas carried forward per round (default: 8)
 - `--output PATH` — output file path
+- `--quick` — cost-sensitive preset: `--rounds 2 --agents 3`
+- `--dry-run` — print the execution plan (agents, rounds, estimated tokens) and stop
 
 ---
 
 ### `/review-fix <target>`
 
-Three reviewers (correctness, robustness, quality) independently analyse the target, then cross-review each other's findings. You triage which findings to fix. Parallel developers implement fixes, verifiers confirm them. Repeats until clean or max iterations reached — with automatic escalation if the same finding keeps failing to resolve.
+Three reviewers independently analyse the target with lenses selected from a decision table (defaults: correctness, robustness, quality — overridden based on target characteristics like auth code, API surfaces, or data pipelines). You triage which findings to fix. Parallel developers implement fixes, verifiers confirm them. Repeats until clean or max iterations reached — with automatic escalation if the same finding keeps failing to resolve.
 
 **Flags:**
 - `--max-iterations N` — max review→fix loops (default: 3)
 - `--auto` — auto-fix all medium+ findings without triage approval
 - `--review-only` — stop after review, don't fix
+- `--quick` — cost-sensitive preset: `--max-iterations 2`
+- `--dry-run` — print the execution plan and stop
 
 ---
 
@@ -103,6 +107,8 @@ Chains `/brainstorm` and `/review-fix` around a parallel implementation phase. B
 - `--from-brainstorm PATH` — skip brainstorm, use an existing brainstorm output file (e.g., from a previous `/brainstorm` session)
 - `--skip-review` — stop after implementation
 - `--resume` — resume from the most recent checkpoint in `.pipeline/`
+- `--quick` — cost-sensitive preset: `--rounds 2 --agents 3 --max-review-iterations 2`
+- `--dry-run` — print the full execution plan across all phases and stop
 
 ---
 
