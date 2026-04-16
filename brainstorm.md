@@ -26,11 +26,22 @@ Repeat the following sequence for each round. Agent count tapers: Round 1 uses `
 
 Pick `{agent count}` roles from the role pool (Appendix A). Rules:
 - Never repeat a role from the previous round.
-- Each round MUST have at least one expansive role (creative inventor, systems architect, domain specialist, first principles thinker) AND one constraining role (minimalist, security hardener, devil's advocate, assumption challenger, day-1 shipper).
+- Each round MUST have at least one expansive role AND one constraining role.
 - Round 1: maximise divergence. Final round: stress-test for production readiness.
-- **For non-code problems** (architecture decisions, product direction, process design) or when the problem statement came from a user request: include assumption challenger or first principles thinker in Round 1. User requests encode assumptions about the solution — these roles challenge whether the problem is correctly framed before solution-space roles optimize within that frame. They pair well together: the assumption challenger clears false premises, the first principles thinker rebuilds from actual needs.
 - Synthesise new roles when the problem demands it. They are first-class.
 - Tell the user which roles you picked and why.
+
+**Match roles to the problem type.** The pool covers many perspectives — pick the ones that matter for this problem, don't default to the same set every time:
+
+| Problem type | Include in Round 1 | Why |
+|---|---|---|
+| User request or feature spec | Assumption challenger, first principles thinker | User requests encode assumptions about the solution. Challenge the frame before optimising within it. |
+| Architecture or technology choice | Future-state thinker, systems architect | Decisions that compound over time need temporal perspective. |
+| Build-vs-buy, investment, prioritisation | Cost analyst, opportunity cost thinker | Economic lens is often the deciding factor. |
+| Greenfield or high-uncertainty | Uncertainty mapper, experiment designer | Identify what you don't know before committing to a direction. |
+| Multi-team, API, or org-wide change | Stakeholder analyst, downstream impact thinker | Who else is affected? Decisions made in isolation break at boundaries. |
+| Process change, tool rollout, adoption | Adoption realist, change management thinker | The best solution fails if nobody can operate it. |
+| Code-focused (bugs, refactoring, features) | Pragmatic engineer, minimalist | Stay in solution/implementation space. |
 
 ### Step 2: Create team and spawn agents
 
@@ -134,22 +145,69 @@ Show:
 
 ## Appendix A: Role Pool
 
+**Problem space** — challenge whether the problem is correctly framed:
+
+| Role | Perspective |
+|------|-------------|
+| **Assumption challenger** | What are we taking as given that might be wrong? False premises, historical accidents mistaken for requirements, solutions looking for problems |
+| **First principles thinker** | Strip away the existing implementation. What does the user actually need? Rebuild from the ground up, ignoring what exists today |
+
+**Solution space** — what could we build, what should we not:
+
 | Role | Perspective |
 |------|-------------|
 | **Creative inventor** | Novel combinations, lateral thinking, "what if we did X instead of the obvious thing" |
+| **Systems architect** | Integration points, scalability, emergent behaviour, component boundaries, data flow |
+| **Domain specialist** | Industry patterns, prior art, how others have solved this, standards and conventions |
+| **Minimalist** | What to remove, YAGNI, smallest viable version, complexity budget, "do we even need this" |
+| **Devil's advocate** | Hidden assumptions, failure cascades, second-order effects, "yes but what about..." |
+| **Day-1 shipper** | MVP scope, cut aggressively, ship and iterate, what's good-enough-for-now |
+
+**Implementation space** — how should we build it:
+
+| Role | Perspective |
+|------|-------------|
 | **Pragmatic engineer** | Simplest working solution, build cost, what's maintainable long-term |
 | **Security hardener** | Threat model, attack surface, trust boundaries, data exposure, abuse cases |
-| **End user advocate** | Usability, friction, accessibility, what real people actually do vs. what we assume |
-| **Systems architect** | Integration points, scalability, emergent behaviour, component boundaries, data flow |
-| **Minimalist** | What to remove, YAGNI, smallest viable version, complexity budget, "do we even need this" |
-| **Domain specialist** | Industry patterns, prior art, how others have solved this, standards and conventions |
-| **Assumption challenger** | What are we taking as given that might be wrong? False premises in the problem statement, historical accidents mistaken for requirements, solutions looking for problems |
-| **First principles thinker** | Strip away the existing implementation. What does the user actually need to accomplish? Rebuild from the ground up, ignoring what exists today |
-| **Devil's advocate** | Hidden assumptions, failure cascades, second-order effects, "yes but what about..." |
 | **Ops engineer** | Deployment, monitoring, maintenance burden, incident response, observability, toil |
 | **Performance engineer** | Efficiency, bottlenecks, resource constraints, scaling limits, cost at volume |
 | **API designer** | Interface contracts, extensibility, backward compatibility, developer ergonomics |
-| **Day-1 shipper** | MVP scope, cut aggressively, ship and iterate, what's good-enough-for-now |
+| **End user advocate** | Usability, friction, accessibility, what real people actually do vs. what we assume |
+
+**Impact space** — who else is affected and how:
+
+| Role | Perspective |
+|------|-------------|
+| **Stakeholder analyst** | Who has power, interest, or dependency on this decision? Whose needs are we not hearing? |
+| **Downstream impact thinker** | What does this change for the teams, processes, or systems that depend on what we're changing? |
+
+**Temporal space** — what does this look like over time:
+
+| Role | Perspective |
+|------|-------------|
+| **Future-state thinker** | What does the 6-month maintenance burden look like? Will this still make sense when the team is 3x larger? |
+| **Technical debt forecaster** | What shortcuts are we taking now, what will they cost later, and is that trade-off explicit? |
+
+**Economic space** — what does this cost and who pays:
+
+| Role | Perspective |
+|------|-------------|
+| **Cost analyst** | Budget constraints, unit economics, total cost of ownership, cost at scale |
+| **Opportunity cost thinker** | What are we NOT doing by choosing this? What's the cost of inaction vs. the cost of building wrong? |
+
+**Uncertainty space** — what don't we know:
+
+| Role | Perspective |
+|------|-------------|
+| **Uncertainty mapper** | What are we assuming to be true without evidence? Where should the decision be reversible? |
+| **Experiment designer** | What's the cheapest way to validate our riskiest assumption before committing? |
+
+**Adoption space** — can people actually execute this:
+
+| Role | Perspective |
+|------|-------------|
+| **Adoption realist** | Does the team have the skills? Will the process actually be followed? Will the docs be maintained? |
+| **Change management thinker** | How do we get from here to there? What resistance will this face and how do we address it? |
 
 Synthesise new roles when the problem demands it. Give each a name and one-line perspective. They carry the same weight as pool roles.
 
