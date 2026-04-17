@@ -11,7 +11,7 @@ Multi-round brainstorming with diverse agent teams. Each round: independent idea
 1. Check that Agent Teams is enabled. If you cannot create an agent team, tell the user to add `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"` to the `env` block in their settings.json, then stop.
 2. Parse the problem statement from the arguments above. If none specified, ask the user what to brainstorm.
 3. Parse optional flags:
-   - `--rounds N` — brainstorm rounds (default: 3)
+   - `--rounds N` — brainstorm rounds (default: 4)
    - `--keep N` — max ideas to carry forward per round (default: 8)
    - `--agents N` — agents per round (default: 4)
    - `--output PATH` — output file path (default: `brainstorm-output.md` in working directory)
@@ -29,14 +29,16 @@ Multi-round brainstorming with diverse agent teams. Each round: independent idea
 
 ## Execution
 
-Repeat the following sequence for each round. Agent count tapers: Round 1 uses `{agents}`, Rounds 2+ use `{agents - 1}` (minimum 2).
+Repeat the following sequence for each round. Agent count: Rounds 1-2 use `{agents}`, Rounds 3+ use `{agents - 1}` (minimum 2).
+
+**Round phases.** When total rounds ≥ 3, the first two rounds are **divergent** (emphasise fresh ideas) and remaining rounds are **convergent** (emphasise challenge and refinement). When total rounds ≤ 2, all rounds are convergent. See Appendix B for how this changes the spawn prompt.
 
 ### Step 1: Select roles
 
 Pick `{agent count}` roles from the role pool (Appendix A). Rules:
 - Never repeat a role from the previous round.
 - Each round MUST have at least one expansive role AND one constraining role.
-- Round 1: maximise divergence. Final round: stress-test for production readiness.
+- Round 1: maximise divergence. Round 2 (if divergent): maximise divergence with different roles — pick from different problem spaces than Round 1 to widen the idea pool. Final round: stress-test survivors for real-world viability — pick roles that pressure-test whether recommendations will actually work (e.g., pragmatic engineer for code, adoption realist for process changes, cost analyst for investment decisions, ops engineer for infrastructure).
 - Synthesise new roles when the problem demands it. They are first-class.
 - Tell the user which roles you picked and why.
 
@@ -91,10 +93,13 @@ Print: `[Round {n}] All {agent count} agents posted ideas. Starting challenge-an
 > *1. Challenge: stress-test each idea with concrete failure modes.*
 > *2. Vote: which ideas should survive? One-line justification each. You may NOT vote for your own ideas. Vote only for ideas proposed by other agents.*
 >
-> *Challenge labels: STRONG [In], WEAK [In], MODIFY [In], MERGE [Ia]+[Ib]*
-> *Vote format: VOTE [In] — {justification}*
+> *Reference ideas as [agent-name-I{n}] (e.g., [minimalist-I2], [pragmatic-engineer-I3]).*
+> *Challenge labels: STRONG [agent-In], WEAK [agent-In], MODIFY [agent-In], MERGE [agent-Ia]+[agent-Ib]*
+> *Vote format: VOTE [agent-In] — {justification}*
 >
 > *50 words max per challenge. Everything in ONE message."*
+
+**Nudge if needed:** If agents go idle without posting challenges, send a reminder: *"Reminder: read ALL ideas from ALL agents and post your challenges and votes in a single message to all teammates. Use STRONG/WEAK/MODIFY/MERGE labels and VOTE format. Do this now."* Proceed after one reminder regardless.
 
 If agents post follow-ups, broadcast: *"Finalise your positions — we're moving to convergence."*
 
@@ -102,7 +107,7 @@ If agents post follow-ups, broadcast: *"Finalise your positions — we're moving
 
 ### Step 6: Convergence
 
-1. Send shutdown request to all agents: `SendMessage` with `message: {type: "shutdown_request"}`
+1. Send shutdown request to each agent individually: `SendMessage` to each agent with `message: {type: "shutdown_request"}`. (Structured messages cannot be broadcast to `"*"`.)
 2. Tally external votes per idea (no self-votes). Threshold: ≥2 votes when agents ≥ 3, ≥1 vote when 2 agents.
 3. Apply `--keep` cap. If more ideas survive than the `--keep` value (default 8), keep only the top `--keep` by vote count. Break ties by preferring unchallenged ideas.
 4. **Rescue** up to 2 ideas cut by role-structural opposition rather than evidence. Mark as `[lead-rescued]`.
@@ -137,7 +142,7 @@ Next round roles: {selections and reasoning}
 Full transcript: brainstorm-r{n}-transcript.md
 ```
 
-**Early stopping:** If the surviving idea set is unchanged from the previous round (same ideas, no new dissent), skip remaining rounds and proceed to final synthesis. Print: `[Status] early_stop=true reason=converged round={n} remaining_rounds_skipped={count}`
+**Early stopping:** If the surviving idea set has at most 1 change from the previous round (at most one idea added, cut, or substantively modified) AND no new unresolved dissent was introduced, skip remaining rounds and proceed to final synthesis. Print: `[Status] early_stop=true reason=converged round={n} remaining_rounds_skipped={count}`
 
 **Between-round steering (if rounds remain).** After presenting the summary, ask:
 
@@ -258,7 +263,13 @@ Synthesise new roles when the problem demands it. Give each a name and one-line 
 > {For Round 1:}
 > This is the first round. No prior ideas — start fresh.
 >
-> {For Rounds 2+:}
+> {For Round 2 when divergent (total rounds ≥ 3):}
+> Ideas surviving from Round 1 (for awareness, not anchoring):
+> - [{ID}] {title} — {description}. Dissent: {concern or "none"}.
+>
+> This is a divergent round. Your PRIMARY job is to propose NEW ideas that Round 1 missed — different angles, overlooked approaches, ideas from your perspective that aren't represented above. You may also modify or challenge survivors, but prioritise fresh proposals. Propose at least 3 new ideas.
+>
+> {For convergent rounds (Round 3+ when total ≥ 3, or Round 2+ when total ≤ 2):}
 > Ideas surviving from previous rounds (already challenged and defended):
 > - [{ID}] {title} — {description}. Dissent: {concern or "none"}.
 >
@@ -327,6 +338,8 @@ Required fields: surviving idea IDs/titles, one-line descriptions, vote counts, 
 ## Lead Notes
 [Observations: non-responsive agents, consensus patterns, merge proposals]
 ```
+
+For rounds 3+, the lead may compress ideation posts to key points (title, stance on survivors, new proposals) rather than full verbatim text. Challenge-and-vote posts should always be captured verbatim — they contain the reasoning chains needed for final synthesis.
 
 ---
 
@@ -398,8 +411,8 @@ Ranked by strength of support across all rounds.
 - **Don't pre-summarise the codebase.** Agents can read code themselves if they need to.
 - **Diversity is the mechanism.** Similar roles collapse into groupthink. The value is in different perspectives colliding.
 - **History carries forward.** Later rounds see what survived via results files. They don't need full transcripts.
-- **Idea count trajectory.** Round 1: 12-20 proposals → 6-9 survivors. Final round: 3-5 strong recommendations. More than 8 after the final round = convergence too loose.
-- **Token economics.** Default (3 rounds, 4/3/3 agents) = ~10 agent context windows. Each agent receives ~4k tokens of protocol and context. Full default brainstorm: ~50-60k input tokens on protocol overhead. Use `--rounds 2 --agents 3` for cost-sensitive runs.
+- **Idea count trajectory.** Round 1: 12-20 proposals → 6-9 survivors. Round 2 (divergent): 10-15 proposals (mix of new + modifications) → 8-12 combined survivors. Convergent rounds narrow toward 3-5 strong recommendations. More than 8 after the final round = convergence too loose.
+- **Token economics.** Default (4 rounds, 4/4/3/3 agents) = ~14 agent context windows. Each agent receives ~4k tokens of protocol and context. Full default brainstorm: ~70-80k input tokens on protocol overhead. Use `--quick` (`--rounds 2 --agents 3` = ~5 context windows) for cost-sensitive runs. With `--auto`, prefer `--rounds 3` or `--quick` — each additional round beyond convergence burns ~3 context windows for diminishing returns.
 - **Intermediate files.** Per-round results and transcript files are working files for synthesis. Clean up after final output is written.
 - **Non-compliance is accepted degraded behavior.** If an agent fails format compliance after one correction, proceed with reduced diversity. Extract what you can, note it in lead notes. The `[Status]` line shows `agents_responded=N/M`.
 

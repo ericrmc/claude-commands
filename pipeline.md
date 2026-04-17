@@ -13,7 +13,7 @@ For individual phases, use `/brainstorm` or `/review-fix` directly.
 1. Check that Agent Teams is enabled. If not, tell the user to add `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"` to the `env` block in their settings.json, then stop.
 2. Parse the task from the arguments above. If none specified, ask.
 3. Parse optional flags:
-   - `--rounds N` — brainstorm rounds (default: 3)
+   - `--rounds N` — brainstorm rounds (default: 4)
    - `--keep N` — ideas to carry per brainstorm round (default: 8)
    - `--agents N` — agents per brainstorm round (default: 4)
    - `--max-review-iterations N` — review-fix iterations (default: 3)
@@ -142,7 +142,7 @@ Wait for all developers. Collect summaries.
 
 If no shared interfaces, skip entirely.
 
-Shut down all developers, `TeamDelete`.
+Shut down all developers (send `{type: "shutdown_request"}` to each individually — structured messages cannot be broadcast), then `TeamDelete`.
 
 ### Step 5: Developer concern gate
 
@@ -332,12 +332,13 @@ Missing fields → ask user. Re-confirm all approval gates unless `--auto` is al
 
 ## Notes
 
-- **Token economics.** Brainstorm (~10 agents) + Implementation (up to 4) + Review-fix (up to 8/iteration × 3 iterations). Full default run: ~35 context windows, ~150-200k input tokens on protocol overhead. Use `--rounds 2 --agents 3` or `--skip-brainstorm` to reduce.
+- **Token economics.** Brainstorm (~14 agents) + Implementation (up to 4) + Review-fix (up to 8/iteration × 3 iterations). Full default run: ~39 context windows, ~180-230k input tokens on protocol overhead. Use `--quick` or `--skip-brainstorm` to reduce.
 - **Approval gates are load-bearing.** Brainstorm→implementation prevents building the wrong thing. Triage prevents fixing non-issues. Always pause unless `--auto`.
 - **Artifacts persist.** Brainstorm output, design brief, and implementation summary survive after the pipeline completes. Useful for onboarding and understanding design decisions.
 - **Design concerns from developers** are surfaced as a gate before review. This is where implementation-time discovery flows backward.
 - **No design feedback loop.** Review cannot trigger re-brainstorm. If review reveals a design issue, stop and re-run `/brainstorm`. Deliberate simplicity trade-off.
 - **Checkpoints** contain only structural metadata — no code, evidence, or transcripts. `--resume` picks up from last completed phase.
+- **Agent coordination.** Broadcasts that require agents to read teammates' messages may need a follow-up nudge. Self-contained action broadcasts typically don't. Structured messages (like `{type: "shutdown_request"}`) cannot be broadcast — send to each agent individually.
 
 ---
 

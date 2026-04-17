@@ -63,11 +63,13 @@ Print: `[Review] All 3 reviewers posted findings. Starting cross-review.`
 
 Broadcast: *"All independent analyses are in. Please read each other's findings and respond with CONFIRM, DISPUTE, or ADD."*
 
+**Nudge if needed:** If reviewers go idle without posting cross-review responses, send a reminder: *"Reminder: read the other reviewers' findings and respond with CONFIRM, DISPUTE, or ADD for each."* Proceed after one reminder.
+
 Allow 1-2 rounds of back-and-forth. If going in circles, broadcast: *"Please finalise your positions — we're moving to synthesis."*
 
 ### Step 4: Shut down and synthesise
 
-Shut down all reviewers (`SendMessage` with `message: {type: "shutdown_request"}`), then `TeamDelete`.
+Shut down all reviewers (send `{type: "shutdown_request"}` to each reviewer individually — structured messages cannot be broadcast), then `TeamDelete`.
 
 Synthesise findings:
 1. **Merge duplicates.** Same issue found by 2+ reviewers → one finding, note agreement count.
@@ -312,6 +314,7 @@ Synthesise domain-specific lenses when needed (security reviewer, performance re
 - **File conflicts.** The file declaration step catches conflicts before code is written. If two developers need the same file, reassign before giving the go-ahead.
 - **Escalation.** Developers may escalate findings beyond their scope. Escalated findings exit the fix loop and are presented separately.
 - **Non-compliance is accepted degraded behavior.** If a reviewer or developer fails format compliance after one correction, proceed with reduced coverage. Extract what you can, note the degradation. The `[Status]` line shows agent response counts.
+- **Broadcasts that require reading teammates' messages** (cross-review, challenge phases) may need a follow-up nudge. Self-contained action broadcasts (initial analysis, file declarations) typically don't. Plan for one nudge per coordination phase.
 
 ---
 

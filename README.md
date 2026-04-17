@@ -73,7 +73,7 @@ In any Claude Code session, type the slash command:
 Agents with distinct roles (creative inventor, pragmatic engineer, security hardener, minimalist, devil's advocate, etc.) independently propose ideas, then challenge and vote on each other's proposals. Runs multiple rounds with rotating roles — ideas that survive repeated cross-examination rise to the top. Produces a ranked recommendation document with full reasoning chains.
 
 **Flags:**
-- `--rounds N` — number of rounds (default: 3)
+- `--rounds N` — number of rounds (default: 4)
 - `--agents N` — agents per round (default: 4)
 - `--keep N` — max ideas carried forward per round (default: 8)
 - `--output PATH` — output file path
@@ -160,12 +160,12 @@ These workflows are token-intensive by design — the value is in the diversity 
 
 | Command | Agent conversations (default settings) | Protocol overhead |
 |---------|-------------|-------------|
-| `/brainstorm` | ~10 (4/3/3 agents across 3 rounds) | ~50-60k input tokens |
+| `/brainstorm` | ~14 (4/4/3/3 agents across 4 rounds) | ~70-80k input tokens |
 | `/review-fix` | ~8 per iteration (3 reviewers + up to 4 developers + 2 verifiers) | ~25-30k input tokens |
-| `/pipeline` | ~35 for a full run (brainstorm + implementation + review) | ~150-200k input tokens |
+| `/pipeline` | ~39 for a full run (brainstorm + implementation + review) | ~180-230k input tokens |
 | `/meta/stress-test` | 1 (single agent, no teams) | ~2k input tokens |
 
-Reduce cost with `--rounds 2 --agents 3`, skip phases (`--skip-brainstorm`, `--skip-review`), or resume from a previous brainstorm (`--from-brainstorm`).
+Reduce cost with `--quick`, skip phases (`--skip-brainstorm`, `--skip-review`), or resume from a previous brainstorm (`--from-brainstorm`).
 
 ---
 
